@@ -192,17 +192,15 @@ void ShortestPath::compute(ExecutionContext* executionContext) {
     auto& ifeMorsel = algoSharedState->ifeMorsel;
     ifeMorsel->initSourceNoLock(algoSharedState->srcOffset);
     while (!ifeMorsel->isCompleteNoLock()) {
-        parallelUtils->doParallel(executionContext);
+        parallelUtils->doParallel(executionContext, extendFrontierFunc);
         ifeMorsel->initializeNextFrontierNoLock();
     }
-    parallelUtils->incrementTableFuncIdx();
-    parallelUtils->doParallel(executionContext);
+    parallelUtils->doParallel(executionContext, shortestPathOutputFunc);
 }
 
 function::function_set ShortestPath::getFunctionSet() {
     function_set functionSet;
-    auto functionList = std::vector<table_func_t>({extendFrontierFunc, shortestPathOutputFunc});
-    auto function = std::make_unique<TableFunction>(name, functionList, bindFunc,
+    auto function = std::make_unique<TableFunction>(name, nullptr, bindFunc,
         shortestPathAlgoInitSharedState, shortestPathAlgoInitLocalState,
         std::vector<LogicalTypeID>{LogicalTypeID::STRING, LogicalTypeID::STRING,
             LogicalTypeID::INT64, LogicalTypeID::INT64, LogicalTypeID::INT64});

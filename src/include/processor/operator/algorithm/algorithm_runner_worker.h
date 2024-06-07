@@ -31,6 +31,17 @@ public:
           info{std::move(info)}, sharedState{std::move(sharedState)},
           algorithmRunnerSharedState{std::move(algorithmRunnerSharedState)} {}
 
+    // used when cloning the operator
+    AlgorithmRunnerWorker(InQueryCallInfo info, function::table_func_t tableFunc,
+        std::shared_ptr<InQueryCallSharedState> sharedState,
+        std::shared_ptr<AlgorithmRunnerSharedState> algorithmRunnerSharedState,
+        std::unique_ptr<ResultSetDescriptor> resultSetDescriptor, uint32_t id,
+        const std::string& paramString)
+        : Sink{std::move(resultSetDescriptor), PhysicalOperatorType::ALGORITHM_RUNNER, id,
+              paramString},
+          info{std::move(info)}, funcToExecute{tableFunc}, sharedState{std::move(sharedState)},
+          algorithmRunnerSharedState{std::move(algorithmRunnerSharedState)} {}
+
     bool isSource() const override { return true; }
 
     inline bool canParallel() const final { return false; }
@@ -43,17 +54,18 @@ public:
         return sharedState->funcState.get();
     }
 
-    void incrementTableFuncIdx() {
-        sharedState->tableFuncIdx++;
+    void setFuncToExecute(function::table_func_t tableFunc) {
+        this->funcToExecute = tableFunc;
     }
 
     std::unique_ptr<PhysicalOperator> clone() override {
-        return std::make_unique<AlgorithmRunnerWorker>(info.copy(), sharedState,
+        return std::make_unique<AlgorithmRunnerWorker>(info.copy(), funcToExecute, sharedState,
             algorithmRunnerSharedState, resultSetDescriptor->copy(), id, paramsString);
     }
 
 private:
     InQueryCallInfo info;
+    function::table_func_t funcToExecute;
     std::shared_ptr<InQueryCallSharedState> sharedState;
     std::shared_ptr<AlgorithmRunnerSharedState> algorithmRunnerSharedState;
     InQueryCallLocalState localState;

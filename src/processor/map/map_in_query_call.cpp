@@ -47,19 +47,18 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapInQueryCall(LogicalOperator* lo
         auto sharedState = std::make_shared<InQueryCallSharedState>();
         auto algorithmRunnerSharedState = std::make_shared<AlgorithmRunnerSharedState>(fTable);
         auto resultSetDescriptor = std::make_unique<ResultSetDescriptor>(outSchema);
-        auto algorithmRunnerWorker = std::make_unique<AlgorithmRunnerWorker>(info.copy(),
-            sharedState, algorithmRunnerSharedState, std::move(resultSetDescriptor),
-            getOperatorID(), call->getExpressionsForPrinting());
-        auto parallelUtils =
-            std::make_shared<graph::ParallelUtils>(std::move(algorithmRunnerWorker));
-        std::shared_ptr<graph::GraphAlgorithm> graphAlgorithm;
+        auto parallelUtils = std::make_unique<graph::ParallelUtils>(info.copy(), sharedState,
+            algorithmRunnerSharedState, std::move(resultSetDescriptor), getOperatorID(),
+            call->getExpressionsForPrinting());
+        std::unique_ptr<graph::GraphAlgorithm> graphAlgorithm;
         if (call->getTableFunc().name == graph::DemoAlgorithm::name) {
-            graphAlgorithm = std::make_shared<graph::DemoAlgorithm>(parallelUtils);
+            graphAlgorithm = std::make_unique<graph::DemoAlgorithm>(std::move(parallelUtils));
         } else {
-            graphAlgorithm = std::make_shared<graph::ShortestPath>(parallelUtils);
+            graphAlgorithm = std::make_unique<graph::ShortestPath>(std::move(parallelUtils));
         }
-        auto algorithmRunnerMain = std::make_unique<AlgorithmRunnerMain>(std::move(info),
-            sharedState, graphAlgorithm, getOperatorID(), call->getExpressionsForPrinting());
+        auto algorithmRunnerMain =
+            std::make_unique<AlgorithmRunnerMain>(std::move(info), sharedState,
+                std::move(graphAlgorithm), getOperatorID(), call->getExpressionsForPrinting());
         auto ftableScan = createFTableScanAligned(outSchema->getExpressionsInScope(), outSchema,
             call->getRowIDExpression(), fTable, 1 /* max morsel size for unflat column*/,
             std::move(algorithmRunnerMain));

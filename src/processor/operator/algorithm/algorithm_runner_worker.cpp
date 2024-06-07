@@ -50,8 +50,7 @@ void AlgorithmRunnerWorker::executeInternal(ExecutionContext*  /*context*/) {
     while (true) {
         localState.funcOutput.dataChunk.state->selVector->selectedSize = 0;
         localState.funcOutput.dataChunk.resetAuxiliaryBuffer();
-        auto numTuplesScanned = info.function.tableFuncs[sharedState->tableFuncIdx](
-            localState.funcInput, localState.funcOutput);
+        auto numTuplesScanned = funcToExecute(localState.funcInput, localState.funcOutput);
         localState.funcOutput.dataChunk.state->selVector->selectedSize = numTuplesScanned;
         if (localState.rowOffsetVector != nullptr) {
             auto rowIdx = sharedState->getAndIncreaseRowIdx(numTuplesScanned);

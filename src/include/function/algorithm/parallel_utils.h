@@ -18,18 +18,17 @@ namespace graph {
 
 class ParallelUtils {
 public:
-    explicit ParallelUtils(std::unique_ptr<AlgorithmRunnerWorker> algorithmRunnerWorker) :
-    algorithmRunnerWorker{std::move(algorithmRunnerWorker)} {}
+    explicit ParallelUtils(InQueryCallInfo info,
+        std::shared_ptr<InQueryCallSharedState> sharedState,
+        std::shared_ptr<AlgorithmRunnerSharedState> algorithmRunnerSharedState,
+        std::unique_ptr<ResultSetDescriptor> resultSetDescriptor, uint32_t operatorID,
+        std::string expressions);
 
     inline function::TableFuncSharedState* getFuncSharedState() {
         return algorithmRunnerWorker->getInQuerySharedState();
     }
 
-    inline void incrementTableFuncIdx() {
-        algorithmRunnerWorker->incrementTableFuncIdx();
-    }
-
-    void doParallel(ExecutionContext* executionContext);
+    void doParallel(ExecutionContext* executionContext, function::table_func_t tableFunc);
 
 private:
     std::unique_ptr<AlgorithmRunnerWorker> algorithmRunnerWorker;

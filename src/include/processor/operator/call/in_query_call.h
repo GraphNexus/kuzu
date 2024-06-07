@@ -9,7 +9,6 @@ namespace processor {
 
 struct InQueryCallSharedState {
     std::unique_ptr<function::TableFuncSharedState> funcState;
-    uint64_t tableFuncIdx = 0u;
     common::row_idx_t nextRowIdx = 0;
     std::mutex mtx;
 

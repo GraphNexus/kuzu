@@ -1,5 +1,6 @@
 #pragma once
 
+#include "common/exception/runtime.h"
 #include "function/algorithm/graph_algorithms.h"
 #include "function/table_functions.h"
 #include "processor/operator/call/in_query_call.h"
@@ -17,7 +18,7 @@ namespace processor {
 class AlgorithmRunnerMain : public Sink {
 public:
     AlgorithmRunnerMain(InQueryCallInfo info, std::shared_ptr<InQueryCallSharedState> sharedState,
-        std::shared_ptr<graph::GraphAlgorithm> graphAlgorithm, uint32_t id,
+        std::unique_ptr<graph::GraphAlgorithm> graphAlgorithm, uint32_t id,
         const std::string& paramString)
         : Sink{nullptr, PhysicalOperatorType::ALGORITHM_RUNNER, id, paramString}, info{std::move(
                                                                                       info)},
@@ -32,14 +33,14 @@ public:
     void executeInternal(ExecutionContext* context) final;
 
     std::unique_ptr<PhysicalOperator> clone() override {
-        return std::make_unique<AlgorithmRunnerMain>(info.copy(), sharedState, graphAlgorithm, id,
-            paramsString);
+        return std::make_unique<AlgorithmRunnerMain>(info.copy(), sharedState,
+            std::move(graphAlgorithm), id, paramsString);
     }
 
 private:
     InQueryCallInfo info;
     std::shared_ptr<InQueryCallSharedState> sharedState;
-    std::shared_ptr<graph::GraphAlgorithm> graphAlgorithm;
+    std::unique_ptr<graph::GraphAlgorithm> graphAlgorithm;
 };
 
 } // namespace processor

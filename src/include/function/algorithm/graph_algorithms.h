@@ -12,12 +12,12 @@ struct ShortestPathAlgoSharedState;
 
 struct GraphAlgorithm {
 public:
-    explicit GraphAlgorithm(std::shared_ptr<ParallelUtils> parallelUtils) : parallelUtils{std::move(parallelUtils)} {}
+    explicit GraphAlgorithm(std::unique_ptr<ParallelUtils> parallelUtils) : parallelUtils{std::move(parallelUtils)} {}
     virtual ~GraphAlgorithm() = default;
     virtual void compute(ExecutionContext* executionContext) = 0;
 
 protected:
-    std::shared_ptr<ParallelUtils> parallelUtils;
+    std::unique_ptr<ParallelUtils> parallelUtils;
 };
 
 // CallFunction has the assumption that number of output is known before execution.
@@ -25,7 +25,7 @@ protected:
 // So each algorithm need to decide its own shared state to control when to terminate.
 struct DemoAlgorithm : public GraphAlgorithm {
 public:
-    explicit DemoAlgorithm(std::shared_ptr<ParallelUtils> parallelUtils) : GraphAlgorithm(parallelUtils) {}
+    explicit DemoAlgorithm(std::unique_ptr<ParallelUtils> parallelUtils) : GraphAlgorithm(std::move(parallelUtils)) {}
     static constexpr const char* name = "DEMO_ALGORITHM";
     void compute(ExecutionContext* executionContext) override;
     static function::function_set getFunctionSet();
@@ -39,7 +39,7 @@ struct VariableLengthPath {
 
 struct ShortestPath : public GraphAlgorithm {
 public:
-    explicit ShortestPath(std::shared_ptr<ParallelUtils> parallelUtils) : GraphAlgorithm(parallelUtils) {}
+    explicit ShortestPath(std::unique_ptr<ParallelUtils> parallelUtils) : GraphAlgorithm(std::move(parallelUtils)) {}
     static constexpr const char* name = "SHORTEST_PATH";
     void compute(ExecutionContext* executionContext) override;
     static function::function_set getFunctionSet();
