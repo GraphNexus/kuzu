@@ -35,9 +35,6 @@ public:
 
     std::unique_ptr<TableCatalogEntry> alter(const binder::BoundAlterInfo& alterInfo);
 
-    //===--------------------------------------------------------------------===//
-    // getter & setter
-    //===--------------------------------------------------------------------===//
     common::table_id_t getTableID() const { return tableID; }
     std::string getComment() const { return comment; }
     void setComment(std::string newComment) { comment = std::move(newComment); }
@@ -50,25 +47,19 @@ public:
         alterInfo = std::make_unique<binder::BoundAlterInfo>(alterInfo_.copy());
     }
 
-    //===--------------------------------------------------------------------===//
-    // properties functions
-    //===--------------------------------------------------------------------===//
     uint32_t getNumProperties() const { return properties.size(); }
     const std::vector<Property>& getPropertiesRef() const { return properties; }
+    const std::vector<Property>& getProperties() const { return properties; }
     bool containProperty(const std::string& propertyName) const;
     common::property_id_t getPropertyID(const std::string& propertyName) const;
     const Property* getProperty(common::property_id_t propertyID) const;
     uint32_t getPropertyPos(common::property_id_t propertyID) const;
     virtual common::column_id_t getColumnID(common::property_id_t propertyID) const;
-    bool containPropertyType(const common::LogicalType& logicalType) const;
     void addProperty(std::string propertyName, common::LogicalType dataType,
         std::unique_ptr<parser::ParsedExpression> defaultExpr);
     void dropProperty(common::property_id_t propertyID);
     void renameProperty(common::property_id_t propertyID, const std::string& newName);
 
-    //===--------------------------------------------------------------------===//
-    // serialization & deserialization
-    //===--------------------------------------------------------------------===//
     void serialize(common::Serializer& serializer) const override;
     static std::unique_ptr<TableCatalogEntry> deserialize(common::Deserializer& deserializer,
         CatalogEntryType type);

@@ -3,28 +3,28 @@
 #include "table_catalog_entry.h"
 
 namespace kuzu {
-namespace transaction {
-class Transaction;
-} // namespace transaction
-
 namespace catalog {
 
 class CatalogSet;
-class NodeTableCatalogEntry final : public TableCatalogEntry {
+class NodeTableCatalogEntry : public TableCatalogEntry {
+    static constexpr CatalogEntryType entryType = CatalogEntryType::NODE_TABLE_ENTRY;
+
 public:
     //===--------------------------------------------------------------------===//
     // constructors
     //===--------------------------------------------------------------------===//
     NodeTableCatalogEntry() = default;
-    NodeTableCatalogEntry(CatalogSet* set, std::string name, common::table_id_t tableID,
-        common::property_id_t primaryKeyPID);
-    NodeTableCatalogEntry(const NodeTableCatalogEntry& other);
+    NodeTableCatalogEntry(CatalogSet* set, std::string name,
+        common::table_id_t tableID, common::property_id_t primaryKeyPID)
+        : TableCatalogEntry{set, entryType, std::move(name), tableID},
+          primaryKeyPID{primaryKeyPID} {}
 
     //===--------------------------------------------------------------------===//
     // getter & setter
     //===--------------------------------------------------------------------===//
-    bool isParent(common::table_id_t /*tableID*/) override { return false; }
+    bool isParent(common::table_id_t) override { return false; }
     common::TableType getTableType() const override { return common::TableType::NODE; }
+
     const Property* getPrimaryKey() const { return getProperty(primaryKeyPID); }
     uint32_t getPrimaryKeyPos() const { return getPropertyPos(primaryKeyPID); }
     common::property_id_t getPrimaryKeyPID() const { return primaryKeyPID; }
@@ -44,6 +44,8 @@ private:
 private:
     common::property_id_t primaryKeyPID;
 };
+
+
 
 } // namespace catalog
 } // namespace kuzu

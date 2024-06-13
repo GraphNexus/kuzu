@@ -26,6 +26,7 @@
 #include "parser/ddl/drop.h"
 #include "parser/expression/parsed_function_expression.h"
 #include "parser/expression/parsed_literal_expression.h"
+#include "main/database_manager.h"
 
 using namespace kuzu::common;
 using namespace kuzu::parser;
@@ -45,6 +46,14 @@ static void validateUniquePropertyName(const std::vector<PropertyInfo>& infos) {
     }
 }
 
+static void validateReservedPropertyName(const std::vector<PropertyInfo>& infos) {
+    for (auto& info : infos) {
+        if (Binder::reservedInColumnName(info.name)) {
+            throw BinderException(stringFormat("{} is a reserved property name.", info.name));
+        }
+    }
+}
+
 static void validateSerialNoDefault(const Expression& expr) {
     if (!ExpressionUtil::isNullLiteral(expr)) {
         throw BinderException("No DEFAULT value should be set for SERIAL columns");
@@ -59,8 +68,7 @@ static std::unique_ptr<parser::ParsedFunctionExpression> createSerialDefaultExpr
 
 std::vector<PropertyInfo> Binder::bindPropertyInfo(
     const std::vector<PropertyDefinitionDDL>& propertyDefinitions, const std::string& tableName) {
-    std::vector<PropertyInfo> propertyInfos;
-    propertyInfos.reserve(propertyDefinitions.size());
+    std::vector<PropertyInfo> infos;
     for (auto& propertyDef : propertyDefinitions) {
         auto type = clientContext->getCatalog()->getType(clientContext->getTx(), propertyDef.type);
         auto expr = propertyDef.expr->copy();
@@ -71,20 +79,25 @@ std::vector<PropertyInfo> Binder::bindPropertyInfo(
             validateSerialNoDefault(*boundExpr);
             expr = createSerialDefaultExpr(Catalog::genSerialName(tableName, propertyDef.name));
         }
-        propertyInfos.emplace_back(propertyDef.name, std::move(type), std::move(expr));
+        infos.emplace_back(propertyDef.name, std::move(type), std::move(expr));
     }
-    validateUniquePropertyName(propertyInfos);
-    for (auto& info : propertyInfos) {
-        if (reservedInColumnName(info.name)) {
-            throw BinderException(stringFormat("{} is a reserved property name.", info.name));
-        }
-    }
-    return propertyInfos;
+    validateUniquePropertyName(infos);
+    validateReservedPropertyName(infos);
+    return infos;
 }
 
-static uint32_t bindPrimaryKey(const std::string& pkColName,
+std::vector<PropertyInfo> Binder::bindPropertyInfo(const TableCatalogEntry& entry) {
+    std::vector<PropertyInfo> infos;
+    for (auto& property : entry.getProperties()) {
+        infos.emplace_back(property.getName(), property.getDataType().copy(), property.getDefaultExpr()->copy());
+    }
+    validateReservedPropertyName(infos);
+    return infos;
+}
+
+static common::idx_t bindPrimaryKey(const std::string& pkColName,
     const std::vector<PropertyInfo>& infos) {
-    uint32_t primaryKeyIdx = UINT32_MAX;
+    common::idx_t primaryKeyIdx = UINT32_MAX;
     for (auto i = 0u; i < infos.size(); i++) {
         if (infos[i].name == pkColName) {
             primaryKeyIdx = i;
@@ -115,10 +128,16 @@ static uint32_t bindPrimaryKey(const std::string& pkColName,
     return primaryKeyIdx;
 }
 
-BoundCreateTableInfo Binder::bindCreateTableInfo(const parser::CreateTableInfo* info) {
-    switch (info->tableType) {
+BoundCreateTableInfo Binder::bindCreateTableInfo(const parser::CreateTableInfo& info) {
+    switch (info.tableType) {
     case TableType::NODE: {
         return bindCreateNodeTableInfo(info);
+    }
+    case TableType::EXTERNAL_NODE: {
+        return bindCreateExternalNodeTableInfo(info);
+    }
+    case TableType::EXTERNAL_REL: {
+        return bindCreateExternalRelTableInfo(info);
     }
     case TableType::REL: {
         return bindCreateRelTableInfo(info);
@@ -135,23 +154,25 @@ BoundCreateTableInfo Binder::bindCreateTableInfo(const parser::CreateTableInfo* 
     }
 }
 
-BoundCreateTableInfo Binder::bindCreateNodeTableInfo(const CreateTableInfo* info) {
-    auto propertyInfos = bindPropertyInfo(info->propertyDefinitions, info->tableName);
-    auto& extraInfo = info->extraInfo->constCast<ExtraCreateNodeTableInfo>();
+
+BoundCreateTableInfo Binder::bindCreateNodeTableInfo(const CreateTableInfo& info) {
+    auto propertyInfos = bindPropertyInfo(info.propertyDefinitions, info.tableName);
+    auto& extraInfo = info.extraInfo->constCast<ExtraCreateNodeTableInfo>();
     auto primaryKeyIdx = bindPrimaryKey(extraInfo.pKName, propertyInfos);
     auto boundExtraInfo =
         std::make_unique<BoundExtraCreateNodeTableInfo>(primaryKeyIdx, std::move(propertyInfos));
-    return BoundCreateTableInfo(TableType::NODE, info->tableName, info->onConflict,
+    return BoundCreateTableInfo(TableType::NODE, info.tableName, info.onConflict,
         std::move(boundExtraInfo));
 }
 
-BoundCreateTableInfo Binder::bindCreateRelTableInfo(const CreateTableInfo* info) {
+
+BoundCreateTableInfo Binder::bindCreateRelTableInfo(const CreateTableInfo& info) {
     std::vector<PropertyInfo> propertyInfos;
     propertyInfos.emplace_back(InternalKeyword::ID, LogicalType::INTERNAL_ID());
-    for (auto& propertyInfo : bindPropertyInfo(info->propertyDefinitions, info->tableName)) {
+    for (auto& propertyInfo : bindPropertyInfo(info.propertyDefinitions, info.tableName)) {
         propertyInfos.push_back(propertyInfo.copy());
     }
-    auto extraInfo = (ExtraCreateRelTableInfo*)info->extraInfo.get();
+    auto extraInfo = (ExtraCreateRelTableInfo*)info.extraInfo.get();
     auto srcMultiplicity = RelMultiplicityUtils::getFwd(extraInfo->relMultiplicity);
     auto dstMultiplicity = RelMultiplicityUtils::getBwd(extraInfo->relMultiplicity);
     auto srcTableID = bindTableID(extraInfo->srcTableName);
@@ -160,17 +181,64 @@ BoundCreateTableInfo Binder::bindCreateRelTableInfo(const CreateTableInfo* info)
     validateTableType(dstTableID, TableType::NODE);
     auto boundExtraInfo = std::make_unique<BoundExtraCreateRelTableInfo>(srcMultiplicity,
         dstMultiplicity, srcTableID, dstTableID, std::move(propertyInfos));
-    return BoundCreateTableInfo(TableType::REL, info->tableName, info->onConflict,
+    return BoundCreateTableInfo(TableType::REL, info.tableName, info.onConflict,
         std::move(boundExtraInfo));
 }
 
-BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo* info) {
-    auto relGroupName = info->tableName;
-    auto extraInfo = (ExtraCreateRelTableGroupInfo*)info->extraInfo.get();
+BoundCreateTableInfo Binder::bindCreateExternalNodeTableInfo(const parser::CreateTableInfo& info) {
+    auto& extraInfo = info.extraInfo->constCast<ExtraCreateExternalNodeTableInfo>();
+    auto entry = bindExternalTableEntry(extraInfo.dbName, extraInfo.tableName)->ptrCast<TableCatalogEntry>();
+    auto propertyInfos = bindPropertyInfo(*entry);
+    auto primaryKeyIdx = bindPrimaryKey(extraInfo.primaryKeyName, propertyInfos);
+    // Bind physical create node table info
+    std::vector<PropertyInfo> physicalPropertyInfos;
+    physicalPropertyInfos.push_back(propertyInfos[primaryKeyIdx].copy());
+    auto physicalPrimaryKeyIdx = 0;
+    auto boundPhysicalExtraInfo = std::make_unique<BoundExtraCreateNodeTableInfo>(
+        physicalPrimaryKeyIdx, std::move(physicalPropertyInfos));
+    auto physicalTableName = "_" + info.tableName;
+    auto boundPhysicalCreateInfo = BoundCreateTableInfo(TableType::NODE, physicalTableName,
+        ConflictAction::ON_CONFLICT_THROW, std::move(boundPhysicalExtraInfo));
+    // Bind create external node table info
+    auto boundExtraInfo = std::make_unique<BoundExtraCreateNodeTableInfo>(primaryKeyIdx, std::move(propertyInfos));
+    return BoundCreateTableInfo(TableType::EXTERNAL_NODE, info.tableName, info.onConflict, std::move(boundExtraInfo));
+}
+
+BoundCreateTableInfo Binder::bindCreateExternalRelTableInfo(const parser::CreateTableInfo& info) {
+//    auto& extraInfo = info.extraInfo->constCast<ExtraCreateExternalRelTableInfo>();
+//    auto srcDBName = extraInfo.srcTableInfo.dbName;
+//    auto srcTableName = extraInfo.srcTableInfo.tableName;
+//    auto srcEntry = bindExternalTableEntry(srcDBName, srcTableName)->ptrCast<TableCatalogEntry>();
+//    auto dstDBName = extraInfo.srcTableInfo.dbName;
+//    auto dstTableName = extraInfo.srcTableInfo.tableName;
+//    auto dstEntry = bindExternalTableEntry(dstDBName, dstTableName)->ptrCast<TableCatalogEntry>();
+//    common::table_id_t internalSrcTableID = INVALID_TABLE_ID;
+//    common::table_id_t internalDstTableID = INVALID_TABLE_ID;
+//    for (auto& entry : clientContext->getCatalog()->getTableEntries(clientContext->getTx())) {
+//        if (entry->getTableType() == common::TableType::NODE) {
+//            auto& nodeEntry = entry->constCast<NodeTableCatalogEntry>();
+//            if (nodeEntry.getExternalTableID() == srcEntry->getTableID()) {
+//                internalSrcTableID = entry->getTableID();
+//            }
+//            if (nodeEntry.getExternalTableID() == dstEntry->getTableID()) {
+//                internalDstTableID = entry->getTableID();
+//            }
+//        }
+//    }
+//    KU_ASSERT(internalSrcTableID != INVALID_TABLE_ID && internalDstTableID != INVALID_TABLE_ID);
+//    std::vector<PropertyInfo> propertyInfos;
+//    propertyInfos.emplace_back(InternalKeyword::ID, LogicalType::INTERNAL_ID());
+//    auto boundExtraInfo = std::make_unique<BoundExtraCreateRelTableInfo>(RelMultiplicity::MANY, RelMultiplicity::MANY, internalSrcTableID, internalDstTableID, std::move(propertyInfos));
+    return BoundCreateTableInfo(TableType::REL, info.tableName, info.onConflict, nullptr);
+}
+
+BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo& info) {
+    auto relGroupName = info.tableName;
+    auto extraInfo = (ExtraCreateRelTableGroupInfo*)info.extraInfo.get();
     auto relMultiplicity = extraInfo->relMultiplicity;
     std::vector<BoundCreateTableInfo> boundCreateRelTableInfos;
-    auto relCreateInfo = std::make_unique<CreateTableInfo>(TableType::REL, "", info->onConflict);
-    for (auto& propertyDef : info->propertyDefinitions) {
+    auto relCreateInfo = std::make_unique<CreateTableInfo>(TableType::REL, "", info.onConflict);
+    for (auto& propertyDef : info.propertyDefinitions) {
         relCreateInfo->propertyDefinitions.emplace_back(propertyDef.name, propertyDef.type,
             propertyDef.expr->copy());
     }
@@ -182,11 +250,11 @@ BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo* 
                                        .append(dstTableName);
         relCreateInfo->extraInfo =
             std::make_unique<ExtraCreateRelTableInfo>(relMultiplicity, srcTableName, dstTableName);
-        boundCreateRelTableInfos.push_back(bindCreateRelTableInfo(relCreateInfo.get()));
+        boundCreateRelTableInfos.push_back(bindCreateRelTableInfo(*relCreateInfo));
     }
     auto boundExtraInfo =
         std::make_unique<BoundExtraCreateRelTableGroupInfo>(std::move(boundCreateRelTableInfos));
-    return BoundCreateTableInfo(TableType::REL_GROUP, info->tableName, info->onConflict,
+    return BoundCreateTableInfo(TableType::REL_GROUP, info.tableName, info.onConflict,
         std::move(boundExtraInfo));
 }
 
@@ -202,7 +270,7 @@ std::unique_ptr<BoundStatement> Binder::bindCreateTable(const Statement& stateme
     default:
         break;
     }
-    auto boundCreateInfo = bindCreateTableInfo(createTable->getInfo());
+    auto boundCreateInfo = bindCreateTableInfo(*createTable->getInfo());
     return std::make_unique<BoundCreateTable>(std::move(boundCreateInfo));
 }
 

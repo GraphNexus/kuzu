@@ -78,5 +78,9 @@ std::unique_ptr<ParsedExpression> ParsedExpression::deserialize(Deserializer& de
     return parsedExpression;
 }
 
+std::unique_ptr<ParsedExpression> ParsedExpressionUtils::getNullLiteralExpr() {
+    return std::make_unique<ParsedLiteralExpression>(Value::createNullValue(), "NULL");
+}
+
 } // namespace parser
 } // namespace kuzu

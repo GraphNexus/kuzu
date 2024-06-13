@@ -4,6 +4,7 @@
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
 #include "catalog/catalog_entry/rdf_graph_catalog_entry.h"
 #include "catalog/catalog_entry/rel_table_catalog_entry.h"
+#include "catalog/catalog_entry/external_node_table_catalog_entry.h"
 #include "common/enums/table_type.h"
 #include "common/exception/binder.h"
 #include "common/string_format.h"
@@ -41,6 +42,11 @@ std::unique_ptr<BoundStatement> Binder::bindCopyFromClause(const Statement& stat
             ku_dynamic_cast<TableCatalogEntry*, NodeTableCatalogEntry*>(tableEntry);
         return bindCopyNodeFrom(statement, nodeTableEntry);
     }
+    case TableType::EXTERNAL_NODE: {
+        auto& externalNodeTableEntry = tableEntry->constCast<ExternalNodeTableCatalogEntry>();
+        auto physicalEntry = externalNodeTableEntry.getPhysicalEntry();
+        return bindCopyNodeFrom(statement, physicalEntry->ptrCast<NodeTableCatalogEntry>());
+    }
     case TableType::REL: {
         auto relTableEntry = ku_dynamic_cast<TableCatalogEntry*, RelTableCatalogEntry*>(tableEntry);
         return bindCopyRelFrom(statement, relTableEntry);
@@ -74,7 +80,7 @@ static std::shared_ptr<Expression> matchColumnExpression(const expression_vector
 
 std::unique_ptr<BoundStatement> Binder::bindCopyNodeFrom(const Statement& statement,
     NodeTableCatalogEntry* nodeTableEntry) {
-    auto& copyStatement = ku_dynamic_cast<const Statement&, const CopyFrom&>(statement);
+    auto& copyStatement = statement.constCast<CopyFrom>();
     // Bind expected columns based on catalog information.
     std::vector<std::string> expectedColumnNames;
     std::vector<LogicalType> expectedColumnTypes;

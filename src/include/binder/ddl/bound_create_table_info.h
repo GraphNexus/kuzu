@@ -55,9 +55,7 @@ struct PropertyInfo {
     std::unique_ptr<parser::ParsedExpression> defaultValue;
 
     PropertyInfo(std::string name, common::LogicalType type)
-        : PropertyInfo{name, std::move(type),
-              std::make_unique<parser::ParsedLiteralExpression>(common::Value::createNullValue(),
-                  "NULL")} {}
+        : PropertyInfo{name, std::move(type), parser::ParsedExpressionUtils::getNullLiteralExpr()} {}
 
     PropertyInfo(std::string name, common::LogicalType type,
         std::unique_ptr<parser::ParsedExpression> defaultValue)
@@ -84,9 +82,9 @@ struct BoundExtraCreateTableInfo : public BoundExtraCreateCatalogEntryInfo {
 };
 
 struct BoundExtraCreateNodeTableInfo final : public BoundExtraCreateTableInfo {
-    common::property_id_t primaryKeyIdx;
+    common::idx_t primaryKeyIdx;
 
-    BoundExtraCreateNodeTableInfo(common::property_id_t primaryKeyIdx,
+    BoundExtraCreateNodeTableInfo(common::idx_t primaryKeyIdx,
         std::vector<PropertyInfo> propertyInfos)
         : BoundExtraCreateTableInfo{std::move(propertyInfos)}, primaryKeyIdx{primaryKeyIdx} {}
     BoundExtraCreateNodeTableInfo(const BoundExtraCreateNodeTableInfo& other)
@@ -95,6 +93,21 @@ struct BoundExtraCreateNodeTableInfo final : public BoundExtraCreateTableInfo {
 
     std::unique_ptr<BoundExtraCreateCatalogEntryInfo> copy() const override {
         return std::make_unique<BoundExtraCreateNodeTableInfo>(*this);
+    }
+};
+
+struct BoundExtraCreateExternalNodeTableInfo : public BoundExtraCreateTableInfo {
+    BoundCreateTableInfo physicalInfo;
+
+    BoundExtraCreateExternalNodeTableInfo(std::vector<PropertyInfo> propertyInfos,
+        BoundCreateTableInfo physicalInfo)
+        : BoundExtraCreateTableInfo{std::move(propertyInfos)}, physicalInfo{std::move(physicalInfo)} {}
+    BoundExtraCreateExternalNodeTableInfo(const BoundExtraCreateExternalNodeTableInfo& other)
+        : BoundExtraCreateTableInfo{copyVector(other.propertyInfos)},
+          physicalInfo{other.physicalInfo.copy()} {}
+
+    std::unique_ptr<BoundExtraCreateCatalogEntryInfo> copy() const override {
+        return std::make_unique<BoundExtraCreateExternalNodeTableInfo>(*this);
     }
 };
 

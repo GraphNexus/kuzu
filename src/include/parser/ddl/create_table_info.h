@@ -47,6 +47,8 @@ struct CreateTableInfo {
     std::unique_ptr<ExtraCreateTableInfo> extraInfo;
     common::ConflictAction onConflict;
 
+    CreateTableInfo(common::TableType tableType, std::string tableName)
+        : CreateTableInfo{tableType, tableName, common::ConflictAction::ON_CONFLICT_DO_NOTHING} {}
     CreateTableInfo(common::TableType tableType, std::string tableName,
         common::ConflictAction onConflict)
         : tableType{tableType}, tableName{std::move(tableName)}, extraInfo{nullptr},
@@ -58,6 +60,31 @@ struct ExtraCreateNodeTableInfo : public ExtraCreateTableInfo {
     std::string pKName;
 
     explicit ExtraCreateNodeTableInfo(std::string pKName) : pKName{std::move(pKName)} {}
+};
+
+struct ExtraCreateExternalNodeTableInfo : public ExtraCreateTableInfo {
+    std::string dbName;
+    std::string tableName;
+    std::string primaryKeyName;
+
+    ExtraCreateExternalNodeTableInfo(std::string dbName, std::string tableName,
+        std::string primaryKeyName)
+        : dbName{std::move(dbName)}, tableName{std::move(tableName)},
+          primaryKeyName{std::move(primaryKeyName)} {}
+};
+
+struct ExtraCreateExternalRelTableInfo : public ExtraCreateTableInfo {
+    std::string srcTableName;
+    std::string dstTableName;
+    std::string fromColumnName;
+    std::string toColumnName;
+    std::string primaryKeyName;
+
+    ExtraCreateExternalRelTableInfo(std::string srcTableName, std::string dstTableName,
+        std::string fromColumnName, std::string toColumnName, std::string primaryKeyName)
+        : srcTableName{std::move(srcTableName)}, dstTableName{std::move(dstTableName)},
+          fromColumnName{std::move(fromColumnName)}, toColumnName{std::move(toColumnName)},
+          primaryKeyName{std::move(primaryKeyName)} {}
 };
 
 struct ExtraCreateRelTableInfo : public ExtraCreateTableInfo {

@@ -8,11 +8,13 @@
 #include "catalog/catalog_entry/rdf_graph_catalog_entry.h"
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "catalog/catalog_entry/rel_table_catalog_entry.h"
+#include "catalog/catalog_entry/external_node_table_catalog_entry.h"
 #include "common/exception/binder.h"
 #include "common/keyword/rdf_keyword.h"
 #include "common/string_format.h"
 #include "function/cast/functions/cast_from_string_functions.h"
 #include "main/client_context.h"
+#include "main/database_manager.h"
 
 using namespace kuzu::common;
 using namespace kuzu::parser;
@@ -122,19 +124,24 @@ std::shared_ptr<Expression> Binder::createPath(const std::string& pathName,
         uniqueName, pathName, std::move(nodeType), std::move(relType), children);
 }
 
+// We need to preserve property order as they are in the catalog.
+static void tryAddPropertyName(std::vector<std::string>& names, std::unordered_set<std::string>& nameSet, const std::string& name) {
+    if (nameSet.contains(name)) {
+        return ;
+    }
+    names.push_back(name);
+    nameSet.insert(name);
+}
+
 static std::vector<std::string> getPropertyNames(const std::vector<TableCatalogEntry*>& entries) {
-    std::vector<std::string> result;
-    std::unordered_set<std::string> propertyNamesSet;
+    std::vector<std::string> names;
+    std::unordered_set<std::string> nameSet;
     for (auto& entry : entries) {
-        for (auto& property : entry->getPropertiesRef()) {
-            if (propertyNamesSet.contains(property.getName())) {
-                continue;
-            }
-            propertyNamesSet.insert(property.getName());
-            result.push_back(property.getName());
+        for (auto& property : entry->getProperties()) {
+            tryAddPropertyName(names, nameSet, property.getName());
         }
     }
-    return result;
+    return names;
 }
 
 static std::unique_ptr<Expression> createPropertyExpression(const std::string& propertyName,
@@ -555,6 +562,7 @@ std::shared_ptr<NodeExpression> Binder::createQueryNode(const NodePattern& nodeP
 std::shared_ptr<NodeExpression> Binder::createQueryNode(const std::string& parsedName,
     const std::vector<table_id_t>& tableIDs) {
     auto nodeTableIDs = getNodeTableIDs(tableIDs);
+    // TODO: validate external node table IDs.
     auto queryNode = make_shared<NodeExpression>(LogicalType(LogicalTypeID::NODE),
         getUniqueExpressionName(parsedName), parsedName, nodeTableIDs);
     queryNode->setAlias(parsedName);
@@ -571,17 +579,57 @@ std::shared_ptr<NodeExpression> Binder::createQueryNode(const std::string& parse
     // Bind properties.
     bindQueryNodeProperties(*queryNode);
     for (auto& expression : queryNode->getPropertyExprsRef()) {
-        auto property = ku_dynamic_cast<Expression*, PropertyExpression*>(expression.get());
-        fieldNames.emplace_back(property->getPropertyName());
-        fieldTypes.emplace_back(property->dataType.copy());
+        auto& property = expression->constCast<PropertyExpression>();
+        fieldNames.emplace_back(property.getPropertyName());
+        fieldTypes.emplace_back(property.dataType.copy());
     }
+    // Bind data type.
     auto extraInfo = std::make_unique<StructTypeInfo>(fieldNames, fieldTypes);
     queryNode->setExtraTypeInfo(std::move(extraInfo));
+    // Bind m
+    auto catalog = clientContext->getCatalog();
+    auto transaction = clientContext->getTx();
+    if (tableIDs.size() == 1) {
+        auto entry = catalog->getTableCatalogEntry(transaction, tableIDs[0]);
+        if (entry->getType() == CatalogEntryType::FOREIGN_NODE_TABLE_ENTRY) {
+            auto& externalNodeEntry = entry->constCast<ExternalNodeTableCatalogEntry>();
+            auto externalDBName = externalNodeEntry.getExternalDBName();
+            auto externalTableName = externalNodeEntry.getExternalTableName();
+            auto externalEntry = bindExternalTableEntry(externalDBName, externalTableName)->ptrCast<TableCatalogEntry>();
+            auto properties = queryNode->getPropertyExprs();
+//            auto pkIdx = externalNodeEntry.get
+        }
+    }
     return queryNode;
 }
 
 void Binder::bindQueryNodeProperties(NodeExpression& node) {
     auto catalog = clientContext->getCatalog();
+    auto transaction = clientContext->getTx();
+//    if (node.refersToExternalTable(*catalog, transaction)) {
+//        auto entry = catalog->getTableCatalogEntry(transaction, node.getSingleTableID())->ptrCast<NodeTableCatalogEntry>();
+//        auto externalEntry = bindExternalTableEntry(entry->getExternalDBName(), entry->getExternalTableName())->ptrCast<TableCatalogEntry>();
+//        auto& internalProperties = entry->getProperties();
+//        KU_ASSERT(internalProperties.size() == 1);
+//        node.addPropertyExpression(internalProperties[0].getName(), createPropertyExpression(internalProperties[0].getName(), node, {entry}));
+//        auto& externalProperties = externalEntry->getProperties();
+//        for (auto i = 1u; i < externalProperties.size(); ++i) {
+//            auto& property = externalProperties[i];
+//            auto expr = createPropertyExpression(property.getName(), node, {externalEntry});
+//            node.addPropertyExpression(property.getName(), std::move(expr));
+//        }
+//        auto properties = node.getPropertyExprs();
+//        auto scanFunction = externalEntry->getScanFunction();
+//        auto bindInput = function::TableFuncBindInput();
+//        auto bindData = scanFunction.bindFunc(clientContext, &bindInput);
+//        expression_vector columns = properties;
+//        auto left = properties[0];
+//        auto right = columns[0];
+//        auto scanInfo = BoundFileScanInfo(scanFunction, std::move(bindData), std::move(columns));
+//        auto externalTableInfo = std::make_unique<ExternalTableInfo>(std::move(scanInfo), left, right);
+//        node.setExternalTableInfo(std::move(externalTableInfo));
+//        return ;
+//    }
     auto entries = catalog->getTableEntries(clientContext->getTx(), node.getTableIDs());
     auto propertyNames = getPropertyNames(entries);
     for (auto& propertyName : propertyNames) {
@@ -627,6 +675,7 @@ std::vector<table_id_t> Binder::getNodeTableIDs(const std::vector<table_id_t>& t
             tableIDSet.insert(id);
         }
     }
+
     return result;
 }
 
@@ -634,9 +683,11 @@ std::vector<common::table_id_t> Binder::getNodeTableIDs(table_id_t tableID) {
     auto tableSchema =
         clientContext->getCatalog()->getTableCatalogEntry(clientContext->getTx(), tableID);
     switch (tableSchema->getTableType()) {
-    case TableType::NODE: {
+    case TableType::NODE:
+    case TableType::EXTERNAL_NODE: {
         return {tableID};
     }
+
     default:
         throw BinderException(
             stringFormat("Cannot bind {} as a node pattern label.", tableSchema->getName()));

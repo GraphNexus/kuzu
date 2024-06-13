@@ -246,7 +246,7 @@ void Planner::planNodeScan(uint32_t nodePos) {
     newSubgraph.addQueryNode(nodePos);
     auto plan = std::make_unique<LogicalPlan>();
     auto properties = getProperties(*node);
-    appendScanNodeTable(node->getInternalID(), node->getTableIDs(), properties, *plan);
+    appendScanNodeTable(*node, properties, *plan);
     auto predicates = getNewlyMatchedExprs(context.getEmptySubqueryGraph(), newSubgraph,
         context.getWhereExpressions());
     appendFilters(predicates, *plan);
@@ -258,7 +258,7 @@ void Planner::planNodeIDScan(uint32_t nodePos) {
     auto newSubgraph = context.getEmptySubqueryGraph();
     newSubgraph.addQueryNode(nodePos);
     auto plan = std::make_unique<LogicalPlan>();
-    appendScanNodeTable(node->getInternalID(), node->getTableIDs(), {}, *plan);
+    appendScanNodeTable(*node, {}, *plan);
     context.addPlan(newSubgraph, std::move(plan));
 }
 

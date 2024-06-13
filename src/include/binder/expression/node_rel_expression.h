@@ -3,9 +3,26 @@
 #include <unordered_map>
 
 #include "expression.h"
+#include "binder/copy/bound_file_scan_info.h"
 
 namespace kuzu {
+namespace catalog {
+class Catalog;
+}
+
+namespace transaction {
+class Transaction;
+}
+
 namespace binder {
+
+struct ExternalTableInfo {
+    BoundFileScanInfo scanInfo;
+    std::shared_ptr<Expression> pkExpression;
+
+    ExternalTableInfo(BoundFileScanInfo scanInfo, std::shared_ptr<Expression> internalColumn, std::shared_ptr<Expression> externalColumn)
+        : scanInfo{std::move(scanInfo)}, internalColumn{std::move(internalColumn)}, externalColumn{std::move(externalColumn)} {}
+};
 
 class NodeOrRelExpression : public Expression {
 public:
@@ -36,6 +53,7 @@ public:
 
     void addPropertyExpression(const std::string& propertyName,
         std::unique_ptr<Expression> property);
+    // TODO we might as well remove this
     bool hasPropertyExpression(const std::string& propertyName) const {
         return propertyNameToIdx.contains(propertyName);
     }
@@ -46,9 +64,6 @@ public:
     }
     // Deep copy expressions.
     expression_vector getPropertyExprs() const;
-
-    bool hasPrimaryKey() const;
-    std::shared_ptr<Expression> getPrimaryKey() const;
 
     void setLabelExpression(std::shared_ptr<Expression> expression) {
         labelExpression = std::move(expression);
@@ -72,6 +87,15 @@ public:
 
     std::string toStringInternal() const final { return variableName; }
 
+    bool refersToExternalTable(const catalog::Catalog& catalog, transaction::Transaction* transaction) const;
+//    void setExternalTableInfo(std::unique_ptr<ExternalTableInfo> info) {
+//        externalTableInfo = std::move(info);
+//    }
+//    bool hasExternalTableInfo() const {
+//        return externalTableInfo != nullptr;
+//    }
+//    ExternalTableInfo* getExternalTableInfo() const { return externalTableInfo.get(); }
+
 protected:
     std::string variableName;
     // A pattern may bind to multiple tables.
@@ -83,6 +107,8 @@ protected:
     std::shared_ptr<Expression> labelExpression;
     // Property data expressions specified by user in the form of "{propertyName : data}"
     std::unordered_map<std::string, std::shared_ptr<Expression>> propertyDataExprs;
+
+//    std::unique_ptr<ExternalTableInfo> externalTableInfo = nullptr;
 };
 
 } // namespace binder

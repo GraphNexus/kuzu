@@ -21,11 +21,13 @@ private:
 };
 
 class PropertyExpression : public Expression {
+    static constexpr common::ExpressionType expressionType_ = common::ExpressionType::PROPERTY;
+
 public:
     PropertyExpression(common::LogicalType dataType, const std::string& propertyName,
         const std::string& uniqueVarName, const std::string& rawVariableName,
         common::table_id_map_t<SingleLabelPropertyInfo> infos)
-        : Expression{common::ExpressionType::PROPERTY, std::move(dataType),
+        : Expression{expressionType_, std::move(dataType),
               uniqueVarName + "." + propertyName},
           propertyName{propertyName}, uniqueVarName{uniqueVarName},
           rawVariableName{rawVariableName}, infos{std::move(infos)} {}
