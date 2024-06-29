@@ -40,7 +40,7 @@ public:
         common::LogicalTypeID targetTypeID);
 
     static bool isLambdaFunction(const std::string& funcName) {
-        return funcName == "LIST_TRANSFORM";
+        return funcName == "LIST_TRANSFORM" || funcName == "LIST_REDUCE";
     }
 
 private:

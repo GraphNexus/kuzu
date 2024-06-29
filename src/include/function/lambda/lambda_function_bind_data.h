@@ -19,9 +19,9 @@ struct LambdaFunctionBindData : public FunctionBindData {
           lambdaExpr{std::move(lambdaExpr)} {}
 
     static void setLambdaVarVector(evaluator::ExpressionEvaluator& evaluator,
-        std::shared_ptr<common::ValueVector> varVector);
+        std::vector<std::shared_ptr<common::ValueVector>> varVector);
 
-    void initEvaluator(std::shared_ptr<common::ValueVector> resultVec,
+    void initEvaluator(std::vector<std::shared_ptr<common::ValueVector>> resultVec,
         const processor::ResultSet& resultSet, main::ClientContext* clientContext) const;
 
     std::unique_ptr<FunctionBindData> copy() const override;

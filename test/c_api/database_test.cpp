@@ -84,3 +84,8 @@ TEST_F(CApiDatabaseTest, CreationHomeDir) {
     kuzu_database_destroy(&database);
     std::filesystem::remove_all(homePath + "/ku_test.db");
 }
+
+TEST_F(CApiDatabaseTest, dasd) {
+    createDBAndConn();
+    printf("%s", conn->query("return list_reduce([2,5,7], (x,y)->x+y)")->toString().c_str());
+}

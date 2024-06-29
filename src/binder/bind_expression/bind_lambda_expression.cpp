@@ -15,8 +15,11 @@ std::shared_ptr<Expression> ExpressionBinder::bindLambdaExpression(
     auto prevScope = binder->saveScope();
     auto var = parsedLambdaExpression.getVariables();
     // TODO(Ziyi): Support multiple parameters.
-    binder->addToScope(var->getRawName(), std::make_shared<LambdaParameterExpression>(
-                                              varType.copy(), getUniqueName(var->getRawName())));
+    for (auto& parsedLambdaVar : parsedLambdaExpression.getVariables()) {
+        binder->addToScope(parsedLambdaVar->getRawName(),
+            std::make_shared<LambdaParameterExpression>(varType.copy(),
+                getUniqueName(parsedLambdaVar->getRawName())));
+    }
     auto boundLambdaExpr = bindExpression(*parsedLambdaExpression.getExpr());
     binder->restoreScope(std::move(prevScope));
     return boundLambdaExpr;

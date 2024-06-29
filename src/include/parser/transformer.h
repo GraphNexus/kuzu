@@ -159,6 +159,8 @@ private:
         CypherParser::OC_ParameterContext& ctx);
     std::unique_ptr<ParsedExpression> transformParenthesizedExpression(
         CypherParser::OC_ParenthesizedExpressionContext& ctx);
+    std::vector<std::unique_ptr<ParsedExpression>> transformLambdaVariables(
+        CypherParser::KU_LambdaVarsContext& ctx);
     std::unique_ptr<ParsedExpression> transformLambdaExpression(
         CypherParser::KU_LambdaContext& ctx);
     std::unique_ptr<ParsedExpression> transformFunctionInvocation(

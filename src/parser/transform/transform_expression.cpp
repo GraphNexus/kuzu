@@ -467,10 +467,20 @@ std::unique_ptr<ParsedExpression> Transformer::transformParenthesizedExpression(
     return transformExpression(*ctx.oC_Expression());
 }
 
+std::vector<std::unique_ptr<ParsedExpression>> Transformer::transformLambdaVariables(
+    CypherParser::KU_LambdaVarsContext& ctx) {
+    std::vector<std::unique_ptr<ParsedExpression>> lambdaVariables;
+    lambdaVariables.reserve(ctx.oC_Expression().size());
+    for (auto& var : ctx.oC_Expression()) {
+        lambdaVariables.push_back(transformExpression(*var));
+    }
+    return lambdaVariables;
+}
+
 std::unique_ptr<ParsedExpression> Transformer::transformLambdaExpression(
     CypherParser::KU_LambdaContext& ctx) {
-    return std::make_unique<ParsedLambdaExpression>(transformExpression(*ctx.oC_Expression()[0]),
-        transformExpression(*ctx.oC_Expression()[1]), ctx.getText());
+    return std::make_unique<ParsedLambdaExpression>(transformLambdaVariables(*ctx.kU_LambdaVars()),
+        transformExpression(*ctx.oC_Expression()), ctx.getText());
 }
 
 std::unique_ptr<ParsedExpression> Transformer::transformFunctionInvocation(

@@ -28,7 +28,7 @@ void FunctionExpressionEvaluator::init(const ResultSet& resultSet,
         auto dataChunk = std::make_shared<common::DataChunk>(1);
         dataChunk->state->setToUnflat();
         dataChunk->insert(0, dataVec);
-        lambdaFuncBindData.initEvaluator(dataVec, resultSet, clientContext);
+        lambdaFuncBindData.initEvaluator({dataVec}, resultSet, clientContext);
     }
 }
 
