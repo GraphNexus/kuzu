@@ -14,7 +14,7 @@ enum class TableType : uint8_t {
     RDF = 3,
     REL_GROUP = 4,
     EXTERNAL = 5,
-    EXTERNAL_NODE = 6,
+    NODE_REFERENCE = 6,
     EXTERNAL_REL = 7,
 };
 

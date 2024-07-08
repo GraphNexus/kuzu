@@ -25,8 +25,8 @@ std::string TableTypeUtils::toString(TableType tableType) {
     case TableType::EXTERNAL: {
         return "EXTERNAL";
     }
-    case TableType::EXTERNAL_NODE: {
-        return "EXTERNAL_NODE";
+    case TableType::NODE_REFERENCE: {
+        return "NODE_REFERENCE";
     }
     case TableType::EXTERNAL_REL: {
         return "EXTERNAL_REL";

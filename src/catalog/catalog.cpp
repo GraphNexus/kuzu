@@ -7,7 +7,7 @@
 #include "binder/ddl/bound_create_table_info.h"
 #include "catalog/catalog_entry/function_catalog_entry.h"
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
-#include "catalog/catalog_entry/external_node_table_catalog_entry.h"
+#include "catalog/catalog_entry/node_table_reference_catalog_entry.h"
 #include "catalog/catalog_entry/rdf_graph_catalog_entry.h"
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "catalog/catalog_entry/rel_table_catalog_entry.h"
@@ -196,8 +196,8 @@ table_id_t Catalog::createTableSchema(Transaction* transaction, const BoundCreat
     case TableType::NODE: {
         entry = createNodeTableEntry(transaction, tableID, info);
     } break;
-    case TableType::EXTERNAL_NODE: {
-        entry = createExternalNodeTableEntry(transaction, tableID, info);
+    case TableType::NODE_REFERENCE: {
+        entry = createNodeTableReferenceEntry(transaction, tableID, info);
     } break ;
     case TableType::REL: {
         entry = createRelTableEntry(transaction, tableID, info);
@@ -526,12 +526,14 @@ std::unique_ptr<CatalogEntry> Catalog::createNodeTableEntry(Transaction*,
     return nodeTableEntry;
 }
 
-std::unique_ptr<CatalogEntry> Catalog::createExternalNodeTableEntry(Transaction* transaction,
+std::unique_ptr<CatalogEntry> Catalog::createNodeTableReferenceEntry(Transaction* transaction,
     common::table_id_t tableID, const binder::BoundCreateTableInfo& info) {
-    auto extraInfo = info.extraInfo->constPtrCast<BoundExtraCreateExternalNodeTableInfo>();
+    auto extraInfo = info.extraInfo->constPtrCast<BoundExtraCreateNodeTableReferenceInfo>();
     auto physicalTableID = tables->assignNextOID();
     auto physicalEntry = createNodeTableEntry(transaction, physicalTableID, extraInfo->physicalInfo);
-    auto entry = std::make_unique<ExternalNodeTableCatalogEntry>(tables.get(), info.tableName, tableID, std::move(physicalEntry));
+    auto entry = std::make_unique<NodeTableReferenceCatalogEntry>(tables.get(), info.tableName,
+        tableID, extraInfo->primaryKeyIdx, extraInfo->externalDBName, extraInfo->externalTableName,
+        std::move(physicalEntry));
     for (auto& propertyInfo : extraInfo->propertyInfos) {
         entry->addProperty(propertyInfo.name, propertyInfo.type.copy(),
             propertyInfo.defaultValue->copy());

@@ -3,6 +3,7 @@
 #include "planner/operator/logical_hash_join.h"
 #include "planner/planner.h"
 #include "catalog/catalog.h"
+#include "catalog/catalog_entry/node_table_reference_catalog_entry.h"
 
 using namespace kuzu::common;
 using namespace kuzu::binder;
@@ -26,19 +27,26 @@ void Planner::appendScanNodeTable(const Expression& expr, const expression_vecto
     auto& node = expr.constCast<NodeExpression>();
     auto catalog = clientContext->getCatalog();
     auto transaction = clientContext->getTx();
-    if (node.hasExternalTableInfo()) { // need to scan from external
-        auto buildPlan = LogicalPlan();
+    if (node.hasExternalEntry()) {
         auto nodeTableID = node.getSingleTableID();
-        auto externNodeTableEntry = catalog->getTableCatalogEntry(transaction, nodeTableID);
-        auto physicalTable = catalog.get
-
-        appendScanNodeTable(node.getInternalID(), node.getTableIDs(), {externalTableInfo->internalColumn}, buildPlan);
-
-
-        auto externalTableInfo = node.getExternalTableInfo();
-        appendScanFile(&externalTableInfo->fileScanInfo, plan);
-
-        auto joinCondition = std::make_pair(externalTableInfo->externalColumn, externalTableInfo->internalColumn);
+        auto referenceEntry = catalog->getTableCatalogEntry(transaction, nodeTableID)->ptrCast<NodeTableReferenceCatalogEntry>();
+        // Scan from physical storage the primary key column
+        auto buildPlan = LogicalPlan();
+        auto physicalEntry = referenceEntry->getPhysicalEntry()->ptrCast<NodeTableCatalogEntry>();
+        auto pkIdx = referenceEntry->getPrimaryKeyIdx();
+        auto pkExpr = node.getPropertyExpression(pkIdx);
+        std::vector<LogicalTableScanInfo> tableScanInfos;
+        tableScanInfos.emplace_back(physicalEntry->getTableID(), std::vector<column_id_t>{physicalEntry->getPrimaryKey()->getColumnID()});
+        appendScanNodeTable(node.getInternalID(), {pkExpr}, tableScanInfos, buildPlan);
+        // Scan from external table
+        auto externalEntry = node.getExternalEntry();
+        auto scanFunc = externalEntry->getScanFunction();
+        auto bindInput = function::TableFuncBindInput();
+        auto bindData = scanFunc.bindFunc(clientContext, &bindInput);
+        auto scanInfo = BoundFileScanInfo(scanFunc, std::move(bindData), node.getPropertyExprs());
+        appendScanFile(&scanInfo, plan);
+        // Join external table with internal table.
+        auto joinCondition = std::make_pair(pkExpr, pkExpr);
         std::vector<join_condition_t> joinConditions;
         joinConditions.push_back(joinCondition);
         appendHashJoin(joinConditions, JoinType::INNER, nullptr, plan, buildPlan, plan);
@@ -47,11 +55,34 @@ void Planner::appendScanNodeTable(const Expression& expr, const expression_vecto
     appendScanNodeTable(node.getInternalID(), node.getTableIDs(), properties, plan);
 }
 
+static std::vector<column_id_t> getColumnIDs(TableCatalogEntry* entry, const expression_vector& properties) {
+    std::vector<column_id_t> columnIDs;
+    for (auto& expr : properties) {
+        auto& property = expr->constCast<PropertyExpression>();
+        if (!property.hasPropertyID(entry->getTableID())) {
+            columnIDs.push_back(INVALID_COLUMN_ID);
+            continue ;
+        }
+        auto propertyID = property.getPropertyID(entry->getTableID());
+        columnIDs.push_back(entry->getColumnID(propertyID));
+    }
+    return columnIDs;
+}
+
 void Planner::appendScanNodeTable(std::shared_ptr<Expression> nodeID,
     std::vector<table_id_t> tableIDs, const expression_vector& properties, LogicalPlan& plan) {
     auto propertiesToScan_ = removeInternalIDProperty(properties);
-    auto scan = make_shared<LogicalScanNodeTable>(std::move(nodeID), std::move(tableIDs),
-        propertiesToScan_);
+    std::vector<LogicalTableScanInfo> tableScanInfos;
+    for (auto& tableID : tableIDs) {
+        auto entry = clientContext->getCatalog()->getTableCatalogEntry(clientContext->getTx(), tableID);
+        tableScanInfos.emplace_back(tableID, getColumnIDs(entry, propertiesToScan_));
+    }
+    appendScanNodeTable(nodeID, propertiesToScan_, tableScanInfos, plan);
+}
+
+void Planner::appendScanNodeTable(std::shared_ptr<Expression> nodeID,
+    const expression_vector& properties, const std::vector<LogicalTableScanInfo>& tableScanInfos, LogicalPlan& plan) {
+    auto scan = make_shared<LogicalScanNodeTable>(std::move(nodeID), properties, std::move(tableScanInfos));
     scan->computeFactorizedSchema();
     plan.setCardinality(cardinalityEstimator.estimateScanNode(scan.get()));
     plan.setLastOperator(std::move(scan));

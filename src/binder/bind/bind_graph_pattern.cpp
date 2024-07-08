@@ -5,10 +5,10 @@
 #include "binder/expression_visitor.h"
 #include "catalog/catalog.h"
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
+#include "catalog/catalog_entry/node_table_reference_catalog_entry.h"
 #include "catalog/catalog_entry/rdf_graph_catalog_entry.h"
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "catalog/catalog_entry/rel_table_catalog_entry.h"
-#include "catalog/catalog_entry/external_node_table_catalog_entry.h"
 #include "common/exception/binder.h"
 #include "common/keyword/rdf_keyword.h"
 #include "common/string_format.h"
@@ -591,13 +591,12 @@ std::shared_ptr<NodeExpression> Binder::createQueryNode(const std::string& parse
     auto transaction = clientContext->getTx();
     if (tableIDs.size() == 1) {
         auto entry = catalog->getTableCatalogEntry(transaction, tableIDs[0]);
-        if (entry->getType() == CatalogEntryType::FOREIGN_NODE_TABLE_ENTRY) {
-            auto& externalNodeEntry = entry->constCast<ExternalNodeTableCatalogEntry>();
-            auto externalDBName = externalNodeEntry.getExternalDBName();
-            auto externalTableName = externalNodeEntry.getExternalTableName();
+        if (entry->getType() == CatalogEntryType::NODE_TABLE_REFERENCE_ENTRY) {
+            auto& referenceEntry = entry->constCast<NodeTableReferenceCatalogEntry>();
+            auto externalDBName = referenceEntry.getExternalDBName();
+            auto externalTableName = referenceEntry.getExternalTableName();
             auto externalEntry = bindExternalTableEntry(externalDBName, externalTableName)->ptrCast<TableCatalogEntry>();
-            auto properties = queryNode->getPropertyExprs();
-//            auto pkIdx = externalNodeEntry.get
+            queryNode->setExternalEntry(externalEntry);
         }
     }
     return queryNode;
@@ -684,10 +683,9 @@ std::vector<common::table_id_t> Binder::getNodeTableIDs(table_id_t tableID) {
         clientContext->getCatalog()->getTableCatalogEntry(clientContext->getTx(), tableID);
     switch (tableSchema->getTableType()) {
     case TableType::NODE:
-    case TableType::EXTERNAL_NODE: {
+    case TableType::NODE_REFERENCE: {
         return {tableID};
     }
-
     default:
         throw BinderException(
             stringFormat("Cannot bind {} as a node pattern label.", tableSchema->getName()));

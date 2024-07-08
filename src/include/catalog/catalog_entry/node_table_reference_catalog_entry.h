@@ -5,18 +5,24 @@
 namespace kuzu {
 namespace catalog {
 
-class ExternalNodeTableCatalogEntry final : public TableCatalogEntry {
-    static constexpr CatalogEntryType entryType = CatalogEntryType::FOREIGN_NODE_TABLE_ENTRY;
+class NodeTableReferenceCatalogEntry final : public TableCatalogEntry {
+    static constexpr CatalogEntryType entryType = CatalogEntryType::NODE_TABLE_REFERENCE_ENTRY;
 
 public:
-    ExternalNodeTableCatalogEntry() = default;
-    ExternalNodeTableCatalogEntry(CatalogSet* set, std::string name, common::table_id_t tableID,
+    NodeTableReferenceCatalogEntry() = default;
+    NodeTableReferenceCatalogEntry(CatalogSet* set, std::string name, common::table_id_t tableID,
+        common::idx_t primaryKeyIdx, std::string externalDBName, std::string externalTableName,
         std::unique_ptr<CatalogEntry> physicalEntry)
-        : TableCatalogEntry{set, entryType, std::move(name), tableID},
+        : TableCatalogEntry{set, entryType, std::move(name), tableID}, primaryKeyIdx{primaryKeyIdx},
+          externalDBName{std::move(externalDBName)}, externalTableName{std::move(externalTableName)},
           physicalEntry{std::move(physicalEntry)} {}
 
     common::TableType getTableType() const override {
-        return common::TableType::EXTERNAL_NODE;
+        return common::TableType::NODE_REFERENCE;
+    }
+
+    common::idx_t getPrimaryKeyIdx () const {
+        return primaryKeyIdx;
     }
 
     std::string getExternalDBName() const {
@@ -30,7 +36,7 @@ public:
     }
 
     void serialize(common::Serializer &serializer) const override;
-    static std::unique_ptr<ExternalNodeTableCatalogEntry> deserialize(common::Deserializer& deserializer);
+    static std::unique_ptr<NodeTableReferenceCatalogEntry> deserialize(common::Deserializer& deserializer);
 
     std::unique_ptr<TableCatalogEntry> copy() const override;
 
@@ -40,10 +46,8 @@ private:
 
 private:
     common::idx_t primaryKeyIdx;
-    //
     std::string externalDBName;
     std::string externalTableName;
-    // nodeEntry stores the actual
     std::unique_ptr<CatalogEntry> physicalEntry;
 };
 

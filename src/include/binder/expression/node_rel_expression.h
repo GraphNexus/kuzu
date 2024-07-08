@@ -8,6 +8,7 @@
 namespace kuzu {
 namespace catalog {
 class Catalog;
+class TableCatalogEntry;
 }
 
 namespace transaction {
@@ -16,19 +17,13 @@ class Transaction;
 
 namespace binder {
 
-struct ExternalTableInfo {
-    BoundFileScanInfo scanInfo;
-    std::shared_ptr<Expression> pkExpression;
-
-    ExternalTableInfo(BoundFileScanInfo scanInfo, std::shared_ptr<Expression> internalColumn, std::shared_ptr<Expression> externalColumn)
-        : scanInfo{std::move(scanInfo)}, internalColumn{std::move(internalColumn)}, externalColumn{std::move(externalColumn)} {}
-};
-
 class NodeOrRelExpression : public Expression {
+    static constexpr common::ExpressionType expressionType_ = common::ExpressionType::PATTERN;
+
 public:
     NodeOrRelExpression(common::LogicalType dataType, std::string uniqueName,
         std::string variableName, std::vector<common::table_id_t> tableIDs)
-        : Expression{common::ExpressionType::PATTERN, std::move(dataType), std::move(uniqueName)},
+        : Expression{expressionType_, std::move(dataType), std::move(uniqueName)},
           variableName(std::move(variableName)), tableIDs{std::move(tableIDs)} {}
 
     // Note: ideally I would try to remove this function. But for now, we have to create type
@@ -59,6 +54,9 @@ public:
     }
     // Deep copy expression.
     std::shared_ptr<Expression> getPropertyExpression(const std::string& propertyName) const;
+    std::shared_ptr<Expression> getPropertyExpression(common::idx_t idx) const {
+        return propertyExprs[idx]->copy();
+    }
     const std::vector<std::unique_ptr<Expression>>& getPropertyExprsRef() const {
         return propertyExprs;
     }
@@ -87,14 +85,15 @@ public:
 
     std::string toStringInternal() const final { return variableName; }
 
-    bool refersToExternalTable(const catalog::Catalog& catalog, transaction::Transaction* transaction) const;
-//    void setExternalTableInfo(std::unique_ptr<ExternalTableInfo> info) {
-//        externalTableInfo = std::move(info);
-//    }
-//    bool hasExternalTableInfo() const {
-//        return externalTableInfo != nullptr;
-//    }
-//    ExternalTableInfo* getExternalTableInfo() const { return externalTableInfo.get(); }
+    void setExternalEntry(catalog::TableCatalogEntry* entry) {
+        externalEntry = entry;
+    }
+    bool hasExternalEntry() const {
+        return externalEntry != nullptr;
+    }
+    catalog::TableCatalogEntry* getExternalEntry() const {
+        return externalEntry;
+    }
 
 protected:
     std::string variableName;
@@ -108,7 +107,7 @@ protected:
     // Property data expressions specified by user in the form of "{propertyName : data}"
     std::unordered_map<std::string, std::shared_ptr<Expression>> propertyDataExprs;
 
-//    std::unique_ptr<ExternalTableInfo> externalTableInfo = nullptr;
+    catalog::TableCatalogEntry* externalEntry = nullptr;
 };
 
 } // namespace binder

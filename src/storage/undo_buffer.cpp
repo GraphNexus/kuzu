@@ -154,6 +154,9 @@ void UndoBuffer::commitCatalogEntry(const uint8_t* record, transaction_t commitT
     newCatalogEntry->setTimestamp(commitTS);
     auto& wal = clientContext.getStorageManager()->getWAL();
     switch (newCatalogEntry->getType()) {
+    case CatalogEntryType::NODE_TABLE_REFERENCE_ENTRY: {
+
+    } break ;
     case CatalogEntryType::NODE_TABLE_ENTRY:
     case CatalogEntryType::REL_TABLE_ENTRY:
     case CatalogEntryType::REL_GROUP_ENTRY:

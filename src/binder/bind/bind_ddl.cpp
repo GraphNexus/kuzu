@@ -133,8 +133,8 @@ BoundCreateTableInfo Binder::bindCreateTableInfo(const parser::CreateTableInfo& 
     case TableType::NODE: {
         return bindCreateNodeTableInfo(info);
     }
-    case TableType::EXTERNAL_NODE: {
-        return bindCreateExternalNodeTableInfo(info);
+    case TableType::NODE_REFERENCE: {
+        return bindCreateNodeTableReferenceInfo(info);
     }
     case TableType::EXTERNAL_REL: {
         return bindCreateExternalRelTableInfo(info);
@@ -185,7 +185,7 @@ BoundCreateTableInfo Binder::bindCreateRelTableInfo(const CreateTableInfo& info)
         std::move(boundExtraInfo));
 }
 
-BoundCreateTableInfo Binder::bindCreateExternalNodeTableInfo(const parser::CreateTableInfo& info) {
+BoundCreateTableInfo Binder::bindCreateNodeTableReferenceInfo(const parser::CreateTableInfo& info) {
     auto& extraInfo = info.extraInfo->constCast<ExtraCreateExternalNodeTableInfo>();
     auto entry = bindExternalTableEntry(extraInfo.dbName, extraInfo.tableName)->ptrCast<TableCatalogEntry>();
     auto propertyInfos = bindPropertyInfo(*entry);
@@ -200,8 +200,9 @@ BoundCreateTableInfo Binder::bindCreateExternalNodeTableInfo(const parser::Creat
     auto boundPhysicalCreateInfo = BoundCreateTableInfo(TableType::NODE, physicalTableName,
         ConflictAction::ON_CONFLICT_THROW, std::move(boundPhysicalExtraInfo));
     // Bind create external node table info
-    auto boundExtraInfo = std::make_unique<BoundExtraCreateNodeTableInfo>(primaryKeyIdx, std::move(propertyInfos));
-    return BoundCreateTableInfo(TableType::EXTERNAL_NODE, info.tableName, info.onConflict, std::move(boundExtraInfo));
+    auto boundExtraInfo = std::make_unique<BoundExtraCreateNodeTableReferenceInfo>(
+        std::move(propertyInfos), primaryKeyIdx, extraInfo.dbName, extraInfo.tableName, std::move(boundPhysicalCreateInfo));
+    return BoundCreateTableInfo(TableType::NODE_REFERENCE, info.tableName, info.onConflict, std::move(boundExtraInfo));
 }
 
 BoundCreateTableInfo Binder::bindCreateExternalRelTableInfo(const parser::CreateTableInfo& info) {

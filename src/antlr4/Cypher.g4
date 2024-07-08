@@ -8,7 +8,7 @@ oC_Cypher
 oC_Statement
     : oC_Query
         | kU_CreateNodeTable
-        | kU_CreateExternalNodeTable
+        | kU_CreateNodeTableReference
         | kU_CreateExternalRelTable
         | kU_CreateRelTable
         | kU_CreateRelTableGroup
@@ -99,8 +99,9 @@ kU_IfNotExists
 kU_CreateNodeTable
     : CREATE SP NODE SP TABLE SP (kU_IfNotExists SP)? oC_SchemaName SP? '(' SP? kU_PropertyDefinitionsDDL SP? kU_PrimaryKeyConstraint SP? ')' ;
 
-kU_CreateExternalNodeTable
-    : CREATE SP EXTERNAL SP NODE SP TABLE SP oC_SchemaName SP AS SP '(' SP? oC_SchemaName kU_TableLookup SP? kU_PrimaryKeyConstraint SP? ')' ;
+// TODO(Xiyang): we should consider merging this with CreateNodeTable
+kU_CreateNodeTableReference
+    : CREATE SP NODE SP TABLE SP oC_SchemaName SP AS SP '(' SP? oC_SchemaName kU_TableLookup SP? kU_PrimaryKeyConstraint SP? ')' ;
 
 kU_CreateRelTable
     : CREATE SP REL SP TABLE SP (kU_IfNotExists SP)? oC_SchemaName SP? '(' SP? kU_RelTableConnection SP? ( ',' SP? kU_PropertyDefinitionsDDL SP? )? ( ',' SP? oC_SymbolicName SP? )?  ')' ;

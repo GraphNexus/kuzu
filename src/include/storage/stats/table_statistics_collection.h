@@ -14,8 +14,11 @@ class DiskArrayCollection;
 struct TablesStatisticsContent {
     std::unordered_map<common::table_id_t, std::unique_ptr<TableStatistics>> tableStatisticPerTable;
 
+    bool hasStat(common::table_id_t tableID) const {
+        return tableStatisticPerTable.contains(tableID);
+    }
     const TableStatistics* getTableStat(common::table_id_t tableID) const {
-        KU_ASSERT(tableStatisticPerTable.contains(tableID));
+        KU_ASSERT(hasStat(tableID));
         return tableStatisticPerTable.at(tableID).get();
     }
 };

@@ -108,6 +108,9 @@ uint64_t CardinalityEstimator::getNumNodes(const std::vector<common::table_id_t>
     Transaction* transaction) {
     auto numNodes = 0u;
     for (auto& tableID : tableIDs) {
+        if (!nodesStatistics->hasStatistics(transaction, tableID)) {
+            continue ;
+        }
         numNodes +=
             nodesStatistics->getNodeStatisticsAndDeletedIDs(transaction, tableID)->getNumTuples();
     }

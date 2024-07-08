@@ -194,8 +194,8 @@ private:
     std::unique_ptr<Statement> transformAlterTable(CypherParser::KU_AlterTableContext& ctx);
     std::unique_ptr<Statement> transformCreateNodeTable(
         CypherParser::KU_CreateNodeTableContext& ctx);
-    std::unique_ptr<Statement> transformCreateExternalNodeTable(
-        CypherParser::KU_CreateExternalNodeTableContext& ctx);
+    std::unique_ptr<Statement> transformCreateNodeTableReference(
+        CypherParser::KU_CreateNodeTableReferenceContext& ctx);
     std::unique_ptr<Statement> transformCreateExternalRelTable(
         CypherParser::KU_CreateExternalRelTableContext& ctx);
     std::unique_ptr<Statement> transformCreateRelTable(CypherParser::KU_CreateRelTableContext& ctx);

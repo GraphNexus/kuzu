@@ -19,6 +19,9 @@ public:
         BufferManager* bufferManager, WAL* wal, common::VirtualFileSystem* fs,
         main::ClientContext* context);
 
+    bool hasStatistics(transaction::Transaction* transaction, common::table_id_t tableID) const {
+        return getVersion(transaction->getType())->hasStat(tableID);
+    }
     NodeTableStatsAndDeletedIDs* getNodeStatisticsAndDeletedIDs(
         transaction::Transaction* transaction, common::table_id_t tableID) const {
         return getNodeTableStats(transaction->getType(), tableID);
@@ -57,12 +60,12 @@ protected:
 private:
     NodeTableStatsAndDeletedIDs* getNodeTableStats(transaction::TransactionType transactionType,
         common::table_id_t tableID) const {
-        return transactionType == transaction::TransactionType::READ_ONLY ?
-                   dynamic_cast<NodeTableStatsAndDeletedIDs*>(
-                       readOnlyVersion->tableStatisticPerTable.at(tableID).get()) :
-                   dynamic_cast<NodeTableStatsAndDeletedIDs*>(
-                       readWriteVersion->tableStatisticPerTable.at(tableID).get());
+        return getVersion(transactionType)->tableStatisticPerTable.at(tableID)->ptrCast<NodeTableStatsAndDeletedIDs>();
     }
+    TablesStatisticsContent* getVersion(transaction::TransactionType transactionType) const {
+        return transactionType == transaction::TransactionType::READ_ONLY ? readOnlyVersion.get() : readWriteVersion.get();
+    }
+
 };
 } // namespace storage
 } // namespace kuzu

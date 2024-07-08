@@ -2,9 +2,9 @@
 #include "binder/copy/bound_copy_from.h"
 #include "catalog/catalog.h"
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
+#include "catalog/catalog_entry/node_table_reference_catalog_entry.h"
 #include "catalog/catalog_entry/rdf_graph_catalog_entry.h"
 #include "catalog/catalog_entry/rel_table_catalog_entry.h"
-#include "catalog/catalog_entry/external_node_table_catalog_entry.h"
 #include "common/enums/table_type.h"
 #include "common/exception/binder.h"
 #include "common/string_format.h"
@@ -42,9 +42,9 @@ std::unique_ptr<BoundStatement> Binder::bindCopyFromClause(const Statement& stat
             ku_dynamic_cast<TableCatalogEntry*, NodeTableCatalogEntry*>(tableEntry);
         return bindCopyNodeFrom(statement, nodeTableEntry);
     }
-    case TableType::EXTERNAL_NODE: {
-        auto& externalNodeTableEntry = tableEntry->constCast<ExternalNodeTableCatalogEntry>();
-        auto physicalEntry = externalNodeTableEntry.getPhysicalEntry();
+    case TableType::NODE_REFERENCE: {
+        auto& referenceEntry = tableEntry->constCast<NodeTableReferenceCatalogEntry>();
+        auto physicalEntry = referenceEntry.getPhysicalEntry();
         return bindCopyNodeFrom(statement, physicalEntry->ptrCast<NodeTableCatalogEntry>());
     }
     case TableType::REL: {

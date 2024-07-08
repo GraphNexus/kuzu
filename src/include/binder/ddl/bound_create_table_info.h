@@ -96,18 +96,25 @@ struct BoundExtraCreateNodeTableInfo final : public BoundExtraCreateTableInfo {
     }
 };
 
-struct BoundExtraCreateExternalNodeTableInfo : public BoundExtraCreateTableInfo {
+struct BoundExtraCreateNodeTableReferenceInfo : public BoundExtraCreateTableInfo {
+    common::idx_t primaryKeyIdx;
+    std::string externalDBName;
+    std::string externalTableName;
     BoundCreateTableInfo physicalInfo;
 
-    BoundExtraCreateExternalNodeTableInfo(std::vector<PropertyInfo> propertyInfos,
-        BoundCreateTableInfo physicalInfo)
-        : BoundExtraCreateTableInfo{std::move(propertyInfos)}, physicalInfo{std::move(physicalInfo)} {}
-    BoundExtraCreateExternalNodeTableInfo(const BoundExtraCreateExternalNodeTableInfo& other)
+    BoundExtraCreateNodeTableReferenceInfo(std::vector<PropertyInfo> propertyInfos,
+        common::idx_t primaryKeyIdx, std::string externalDBName,
+        std::string externalTableName, BoundCreateTableInfo physicalInfo)
+        : BoundExtraCreateTableInfo{std::move(propertyInfos)}, primaryKeyIdx{primaryKeyIdx},
+          externalDBName{std::move(externalDBName)}, externalTableName{std::move(externalTableName)},
+          physicalInfo{std::move(physicalInfo)} {}
+    BoundExtraCreateNodeTableReferenceInfo(const BoundExtraCreateNodeTableReferenceInfo& other)
         : BoundExtraCreateTableInfo{copyVector(other.propertyInfos)},
-          physicalInfo{other.physicalInfo.copy()} {}
+          primaryKeyIdx{other.primaryKeyIdx}, externalDBName{other.externalDBName},
+          externalTableName{other.externalTableName}, physicalInfo{other.physicalInfo.copy()} {}
 
     std::unique_ptr<BoundExtraCreateCatalogEntryInfo> copy() const override {
-        return std::make_unique<BoundExtraCreateExternalNodeTableInfo>(*this);
+        return std::make_unique<BoundExtraCreateNodeTableReferenceInfo>(*this);
     }
 };
 

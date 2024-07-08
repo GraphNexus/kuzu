@@ -100,7 +100,7 @@ public:
 
     /*** bind DDL ***/
     BoundCreateTableInfo bindCreateTableInfo(const parser::CreateTableInfo& info);
-    BoundCreateTableInfo bindCreateExternalNodeTableInfo(const parser::CreateTableInfo& info);
+    BoundCreateTableInfo bindCreateNodeTableReferenceInfo(const parser::CreateTableInfo& info);
     BoundCreateTableInfo bindCreateNodeTableInfo(const parser::CreateTableInfo& info);
     BoundCreateTableInfo bindCreateExternalRelTableInfo(const parser::CreateTableInfo& info);
     BoundCreateTableInfo bindCreateRelTableInfo(const parser::CreateTableInfo& info);

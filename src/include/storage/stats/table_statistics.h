@@ -36,6 +36,11 @@ public:
 
     virtual std::unique_ptr<TableStatistics> copy() = 0;
 
+    template<class TARGET>
+    TARGET* ptrCast() {
+        return common::ku_dynamic_cast<TableStatistics*, TARGET*>(this);
+    }
+
 protected:
     common::TableType tableType;
     uint64_t numTuples;

@@ -47,16 +47,29 @@ struct PrimaryKeyScanInfo final : ExtraScanNodeTableInfo {
     }
 };
 
+struct LogicalTableScanInfo {
+    common::table_id_t tableID;
+    std::vector<common::column_id_t> columnIDs;
+
+    LogicalTableScanInfo(common::table_id_t tableID, std::vector<common::column_id_t> columnIDs)
+        : tableID{tableID}, columnIDs{std::move(columnIDs)} {}
+};
+
 class LogicalScanNodeTable final : public LogicalOperator {
     static constexpr LogicalOperatorType type_ = LogicalOperatorType::SCAN_NODE_TABLE;
     static constexpr LogicalScanNodeTableType defaultScanType = LogicalScanNodeTableType::SCAN;
 
 public:
-    LogicalScanNodeTable(std::shared_ptr<binder::Expression> nodeID,
-        std::vector<common::table_id_t> nodeTableIDs, binder::expression_vector properties)
+    LogicalScanNodeTable(std::shared_ptr<binder::Expression> nodeID, binder::expression_vector properties, std::vector<LogicalTableScanInfo> tableScanInfo)
         : LogicalOperator{type_}, scanType{defaultScanType}, nodeID{std::move(nodeID)},
-          nodeTableIDs{std::move(nodeTableIDs)}, properties{std::move(properties)} {}
-    LogicalScanNodeTable(const LogicalScanNodeTable& other);
+          properties{std::move(properties)}, tableScanInfo{std::move(tableScanInfo)} {}
+    LogicalScanNodeTable(const LogicalScanNodeTable& other) : LogicalOperator{type_}, scanType{other.scanType}, nodeID{other.nodeID},
+          properties{other.properties}, tableScanInfo{other.tableScanInfo},
+          propertyPredicates{copyVector(other.propertyPredicates)} {
+        if (other.extraInfo != nullptr) {
+            setExtraInfo(other.extraInfo->copy());
+        }
+    }
 
     void computeFactorizedSchema() override;
     void computeFlatSchema() override;
@@ -69,9 +82,20 @@ public:
     void setScanType(LogicalScanNodeTableType scanType_) { scanType = scanType_; }
 
     std::shared_ptr<binder::Expression> getNodeID() const { return nodeID; }
-    std::vector<common::table_id_t> getTableIDs() const { return nodeTableIDs; }
 
     binder::expression_vector getProperties() const { return properties; }
+
+    const std::vector<LogicalTableScanInfo>& getTableScanInfo() const {
+        return tableScanInfo;
+    }
+    std::vector<common::table_id_t> getTableIDs() const {
+        std::vector<common::table_id_t> tableIDs;
+        for (auto& info : tableScanInfo) {
+            tableIDs.push_back(info.tableID);
+        }
+        return tableIDs;
+    }
+
     void setPropertyPredicates(std::vector<storage::ColumnPredicateSet> predicates) {
         propertyPredicates = std::move(predicates);
     }
@@ -83,13 +107,16 @@ public:
 
     ExtraScanNodeTableInfo* getExtraInfo() const { return extraInfo.get(); }
 
-    std::unique_ptr<LogicalOperator> copy() override;
+    std::unique_ptr<LogicalOperator> copy() override {
+        return std::make_unique<LogicalScanNodeTable>(*this);
+    }
 
 private:
     LogicalScanNodeTableType scanType;
     std::shared_ptr<binder::Expression> nodeID;
-    std::vector<common::table_id_t> nodeTableIDs;
     binder::expression_vector properties;
+    std::vector<LogicalTableScanInfo> tableScanInfo;
+    // TODO(Xiyang): merge this with table scanInfo?
     std::vector<storage::ColumnPredicateSet> propertyPredicates;
     std::unique_ptr<ExtraScanNodeTableInfo> extraInfo;
 };
