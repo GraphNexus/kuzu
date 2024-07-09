@@ -21,8 +21,7 @@ public:
           extendFromSource_{extendFromSource_} {}
 
     std::shared_ptr<binder::Expression> getBoundNodeID() const { return boundNodeID; }
-
-//    std::shared_ptr<binder::NodeExpression> getBoundNode() const { return boundNode; }
+    
     std::shared_ptr<binder::NodeExpression> getNbrNode() const { return nbrNode; }
     std::shared_ptr<binder::RelExpression> getRel() const { return rel; }
     bool isRecursive() const { return rel->isRecursive(); }

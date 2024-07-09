@@ -43,6 +43,7 @@ static bool extendHasAtMostOneNbrGuarantee(RelExpression& rel, NodeExpression& b
     return relTableEntry->isSingleMultiplicity(relDirection);
 }
 
+// TODO(merge)
 static std::unordered_set<table_id_t> getBoundNodeTableIDSet(const RelExpression& rel,
     ExtendDirection extendDirection, const main::ClientContext& clientContext) {
     std::unordered_set<table_id_t> result;
@@ -68,11 +69,11 @@ static std::unordered_set<table_id_t> getBoundNodeTableIDSet(const RelExpression
     return result;
 }
 
-static std::unordered_set<table_id_t> getNbrNodeTableIDSet(const RelExpression& rel,
+static std::unordered_set<table_id_t> getNbrNodeTableIDSet(const std::vector<common::table_id_t>& relTableIDs,
     ExtendDirection extendDirection, const main::ClientContext& clientContext) {
     std::unordered_set<table_id_t> result;
     auto catalog = clientContext.getCatalog();
-    for (auto tableID : rel.getTableIDs()) {
+    for (auto tableID : relTable) {
         auto relTableEntry = ku_dynamic_cast<TableCatalogEntry*, RelTableCatalogEntry*>(
             catalog->getTableCatalogEntry(clientContext.getTx(), tableID));
         switch (extendDirection) {
@@ -119,20 +120,27 @@ static void validatePropertiesContainRelID(const RelExpression& rel,
     // LCOV_EXCL_STOP
 }
 
-void Planner::appendNonRecursiveExtend(const std::shared_ptr<NodeExpression>& boundNode,
+void Planner::appendNonRecursiveExtend(std::shared_ptr<NodeExpression> boundNode,
     const std::shared_ptr<NodeExpression>& nbrNode, const std::shared_ptr<RelExpression>& rel,
     ExtendDirection direction, bool extendFromSource, const expression_vector& properties,
     LogicalPlan& plan) {
     validatePropertiesContainRelID(*rel, properties);
+
+    auto catalog = clientContext->getCatalog();
+    auto transaction = clientContext->getTx();
+    std::vector<common::table_id_t> boundTableIDs;
+    if (boundNode->hasExternalEntry()) {
+        auto referenceEntry =
+    }
+
+
+
     // Filter bound node label if we know some incoming nodes won't have any outgoing rel. This
     // cannot be done at binding time because the pruning is affected by extend direction.
     auto boundNodeTableIDSet = getBoundNodeTableIDSet(*rel, direction, *clientContext);
     if (boundNode->getNumTableIDs() > boundNodeTableIDSet.size()) {
         appendNodeLabelFilter(boundNode->getInternalID(), boundNodeTableIDSet, plan);
     }
-    // Check for each bound node, can we extend to more than 1 nbr node.
-    auto hasAtMostOneNbr =
-        extendHasAtMostOneNbrGuarantee(*rel, *boundNode, direction, *clientContext);
     auto properties_ = properties;
     auto iri = getIRIProperty(properties);
     if (iri != nullptr) {
@@ -142,8 +150,10 @@ void Planner::appendNonRecursiveExtend(const std::shared_ptr<NodeExpression>& bo
         properties_ = ExpressionUtil::removeDuplication(properties_);
     }
     // Append extend
+
+
     auto extend = make_shared<LogicalExtend>(boundNode, nbrNode, rel, direction, extendFromSource,
-        properties_, hasAtMostOneNbr, plan.getLastOperator());
+        properties_, false, plan.getLastOperator());
     appendFlattens(extend->getGroupsPosToFlatten(), plan);
     extend->setChild(0, plan.getLastOperator());
     extend->computeFactorizedSchema();

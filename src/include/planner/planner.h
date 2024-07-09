@@ -244,7 +244,7 @@ public:
         const std::vector<LogicalNodeTableScanInfo>& tableScanInfos, LogicalPlan& plan);
 
     // Append extend operators
-    void appendNonRecursiveExtend(const std::shared_ptr<binder::NodeExpression>& boundNode,
+    void appendNonRecursiveExtend(std::shared_ptr<binder::NodeExpression> boundNode,
         const std::shared_ptr<binder::NodeExpression>& nbrNode,
         const std::shared_ptr<binder::RelExpression>& rel, common::ExtendDirection direction,
         bool extendFromSource, const binder::expression_vector& properties, LogicalPlan& plan);
