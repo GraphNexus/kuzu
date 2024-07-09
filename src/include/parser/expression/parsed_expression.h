@@ -93,7 +93,7 @@ protected:
 
 using options_t = std::unordered_map<std::string, std::unique_ptr<parser::ParsedExpression>>;
 
-struct ParsedExpressionUtils {
+struct KUZU_API ParsedExpressionUtils {
     static std::unique_ptr<ParsedExpression> getNullLiteralExpr();
 };
 

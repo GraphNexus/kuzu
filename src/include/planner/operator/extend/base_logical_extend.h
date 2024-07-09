@@ -7,22 +7,22 @@
 namespace kuzu {
 namespace planner {
 
-struct LogicalRelTableScanInfo {
-    common::table_id_t tableID;
-};
-
 class BaseLogicalExtend : public LogicalOperator {
 public:
     BaseLogicalExtend(LogicalOperatorType operatorType,
-        std::shared_ptr<binder::NodeExpression> boundNode,
-        std::shared_ptr<binder::NodeExpression> nbrNode, std::shared_ptr<binder::RelExpression> rel,
+        std::shared_ptr<binder::Expression> boundNodeID,
+        std::vector<common::table_id_t> boundTableIDs,
+        std::shared_ptr<binder::NodeExpression> nbrNode,
+        std::shared_ptr<binder::RelExpression> rel,
         common::ExtendDirection direction, bool extendFromSource_,
         std::shared_ptr<LogicalOperator> child)
-        : LogicalOperator{operatorType, std::move(child)}, boundNode{std::move(boundNode)},
+        : LogicalOperator{operatorType, std::move(child)}, boundNodeID{std::move(boundNodeID)},
           nbrNode{std::move(nbrNode)}, rel{std::move(rel)}, direction{direction},
           extendFromSource_{extendFromSource_} {}
 
-    std::shared_ptr<binder::NodeExpression> getBoundNode() const { return boundNode; }
+    std::shared_ptr<binder::Expression> getBoundNodeID() const { return boundNodeID; }
+
+//    std::shared_ptr<binder::NodeExpression> getBoundNode() const { return boundNode; }
     std::shared_ptr<binder::NodeExpression> getNbrNode() const { return nbrNode; }
     std::shared_ptr<binder::RelExpression> getRel() const { return rel; }
     bool isRecursive() const { return rel->isRecursive(); }
@@ -35,11 +35,13 @@ public:
     std::string getExpressionsForPrinting() const override;
 
 protected:
-    // Start node of extension.
-    std::shared_ptr<binder::NodeExpression> boundNode;
-    // End node of extension.
+
+    std::shared_ptr<binder::Expression> boundNodeID;
+    std::vector<common::table_id_t> boundTableIDs;
+
     std::shared_ptr<binder::NodeExpression> nbrNode;
     std::shared_ptr<binder::RelExpression> rel;
+    std::vector<common::table_id_t> relTableIDs;
 
 
     common::ExtendDirection direction;

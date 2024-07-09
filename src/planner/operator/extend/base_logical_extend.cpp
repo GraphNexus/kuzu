@@ -1,4 +1,5 @@
 #include "planner/operator/extend/base_logical_extend.h"
+#include "binder/"
 
 using namespace kuzu::common;
 
@@ -26,7 +27,7 @@ static std::string relToString(const binder::RelExpression& rel) {
 }
 
 std::string BaseLogicalExtend::getExpressionsForPrinting() const {
-    auto result = boundNode->toString();
+    auto result = boundNodeID->constCast<Proper>()->toString();
     switch (direction) {
     case ExtendDirection::FWD: {
         result += "-";

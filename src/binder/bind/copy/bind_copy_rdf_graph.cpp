@@ -69,7 +69,7 @@ std::unique_ptr<BoundStatement> Binder::bindCopyRdfFrom(const parser::Statement&
     auto rFileScanInfo = BoundFileScanInfo(*rScanFunc, bindData->copy(), rColumns);
     auto rSource = std::make_unique<BoundFileScanSource>(std::move(rFileScanInfo));
     auto rTableID = rdfGraphEntry->getResourceTableID();
-    auto rEntry = catalog->getTableCatalogEntry(clientContext->getTx(), rTableID);
+    auto rEntry = catalog->getTableCatalogEntry(clientContext->getTx(), rTableID)->ptrCast<NodeTableCatalogEntry>();
     auto rCopyInfo = BoundCopyFromInfo(rEntry, std::move(rSource), offset, std::move(rColumns),
         std::vector<bool>{false}, nullptr /* extraInfo */);
     // Bind copy literal.
@@ -100,9 +100,9 @@ std::unique_ptr<BoundStatement> Binder::bindCopyRdfFrom(const parser::Statement&
     auto rrrTableID = rdfGraphEntry->getResourceTripleTableID();
     auto rrrEntry = catalog->getTableCatalogEntry(clientContext->getTx(), rrrTableID);
     auto rrrExtraInfo = std::make_unique<ExtraBoundCopyRelInfo>();
-    auto sLookUp = IndexLookupInfo(rTableID, sOffset, s);
-    auto pLookUp = IndexLookupInfo(rTableID, pOffset, p);
-    auto oLookUp = IndexLookupInfo(rTableID, oOffset, o);
+    auto sLookUp = IndexLookupInfo(rEntry, sOffset, s);
+    auto pLookUp = IndexLookupInfo(rEntry, pOffset, p);
+    auto oLookUp = IndexLookupInfo(rEntry, oOffset, o);
     rrrExtraInfo->infos.push_back(sLookUp.copy());
     rrrExtraInfo->infos.push_back(pLookUp.copy());
     rrrExtraInfo->infos.push_back(oLookUp.copy());

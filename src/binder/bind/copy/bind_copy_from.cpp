@@ -27,8 +27,9 @@ std::unique_ptr<BoundStatement> Binder::bindCopyFromClause(const Statement& stat
     validateTableExist(tableName);
     // Bind to table schema.
     auto catalog = clientContext->getCatalog();
-    auto tableID = catalog->getTableID(clientContext->getTx(), tableName);
-    auto tableEntry = catalog->getTableCatalogEntry(clientContext->getTx(), tableID);
+    auto transaction = clientContext->getTx();
+    auto tableID = catalog->getTableID(transaction, tableName);
+    auto tableEntry = catalog->getTableCatalogEntry(transaction, tableID);
     switch (tableEntry->getTableType()) {
     case TableType::REL_GROUP: {
         throw BinderException(stringFormat("Cannot copy into {} table with type {}.", tableName,
@@ -49,13 +50,19 @@ std::unique_ptr<BoundStatement> Binder::bindCopyFromClause(const Statement& stat
         return bindCopyNodeFrom(statement, physicalEntry->ptrCast<NodeTableCatalogEntry>());
     }
     case TableType::REL: {
-        auto relTableEntry = ku_dynamic_cast<TableCatalogEntry*, RelTableCatalogEntry*>(tableEntry);
-        return bindCopyRelFrom(statement, relTableEntry);
+        auto relEntry = tableEntry->ptrCast<RelTableCatalogEntry>();
+        auto srcEntry = catalog->getTableCatalogEntry(transaction, relEntry->getSrcTableID())->ptrCast<NodeTableCatalogEntry>();
+        auto dstEntry = catalog->getTableCatalogEntry(transaction, relEntry->getDstTableID())->ptrCast<NodeTableCatalogEntry>();
+        return bindCopyRelFrom(statement, relEntry, srcEntry, dstEntry);
     }
     case TableType::REL_REFERENCE: {
         auto& referenceEntry = tableEntry->constCast<RelTableReferenceCatalogEntry>();
-        auto physicalEntry = referenceEntry.getPhysicalEntry();
-        return bindCopyRelFrom(statement, physicalEntry->ptrCast<RelTableCatalogEntry>());
+        auto physicalRelEntry = referenceEntry.getPhysicalEntry()->ptrCast<RelTableCatalogEntry>();
+        auto srcRefEntry = catalog->getTableCatalogEntry(transaction, referenceEntry.getSrcTableID())->ptrCast<NodeTableReferenceCatalogEntry>();
+        auto dstRefEntry = catalog->getTableCatalogEntry(transaction, referenceEntry.getDstTableID())->ptrCast<NodeTableReferenceCatalogEntry>();
+        auto physicalSrcEntry = srcRefEntry->getPhysicalEntry()->ptrCast<NodeTableCatalogEntry>();
+        auto physicalDstEntry = dstRefEntry->getPhysicalEntry()->ptrCast<NodeTableCatalogEntry>();
+        return bindCopyRelFrom(statement, physicalRelEntry, physicalSrcEntry, physicalDstEntry);
     }
     case TableType::RDF: {
         auto rdfGraphEntry = ku_dynamic_cast<TableCatalogEntry*, RDFGraphCatalogEntry*>(tableEntry);
@@ -70,9 +77,10 @@ std::unique_ptr<BoundStatement> Binder::bindCopyFromClause(const Statement& stat
 static void bindExpectedNodeColumns(NodeTableCatalogEntry* nodeTableEntry,
     const std::vector<std::string>& inputColumnNames, std::vector<std::string>& columnNames,
     std::vector<LogicalType>& columnTypes);
-static void bindExpectedRelColumns(RelTableCatalogEntry* relTableEntry,
+static void bindExpectedRelColumns(RelTableCatalogEntry* relTableEntry, NodeTableCatalogEntry* srcEntry,
+    NodeTableCatalogEntry* dstEntry,
     const std::vector<std::string>& inputColumnNames, std::vector<std::string>& columnNames,
-    std::vector<LogicalType>& columnTypes, main::ClientContext* context);
+    std::vector<LogicalType>& columnTypes);
 
 static std::shared_ptr<Expression> matchColumnExpression(const expression_vector& columnExpressions,
     const std::string& columnName) {
@@ -125,8 +133,8 @@ std::unique_ptr<BoundStatement> Binder::bindCopyNodeFrom(const Statement& statem
 }
 
 std::unique_ptr<BoundStatement> Binder::bindCopyRelFrom(const parser::Statement& statement,
-    RelTableCatalogEntry* relTableEntry, NodeTableCatalogEntry* srcNodeEnrey) {
-    auto& copyStatement = ku_dynamic_cast<const Statement&, const CopyFrom&>(statement);
+    RelTableCatalogEntry* relTableEntry, NodeTableCatalogEntry* srcNodeEntry, NodeTableCatalogEntry* dstNodeEntry) {
+    auto& copyStatement = statement.constCast<CopyFrom>();
     if (copyStatement.byColumn()) {
         throw BinderException(
             stringFormat("Copy by column is not supported for relationship table."));
@@ -134,15 +142,13 @@ std::unique_ptr<BoundStatement> Binder::bindCopyRelFrom(const parser::Statement&
     // Bind expected columns based on catalog information.
     std::vector<std::string> expectedColumnNames;
     std::vector<LogicalType> expectedColumnTypes;
-    bindExpectedRelColumns(relTableEntry, copyStatement.getColumnNames(), expectedColumnNames,
-        expectedColumnTypes, clientContext);
+    bindExpectedRelColumns(relTableEntry, srcNodeEntry, dstNodeEntry, copyStatement.getColumnNames(), expectedColumnNames,
+        expectedColumnTypes);
     auto boundSource = bindScanSource(copyStatement.getSource(),
         copyStatement.getParsingOptionsRef(), expectedColumnNames, expectedColumnTypes);
     auto columns = boundSource->getColumns();
     auto offset = expressionBinder.createVariableExpression(LogicalType::INT64(),
         std::string(InternalKeyword::ROW_OFFSET));
-    auto srcTableID = relTableEntry->getSrcTableID();
-    auto dstTableID = relTableEntry->getDstTableID();
     auto srcKey = columns[0];
     auto dstKey = columns[1];
     auto srcOffset = createVariable(InternalKeyword::SRC_OFFSET, LogicalTypeID::INT64);
@@ -161,8 +167,8 @@ std::unique_ptr<BoundStatement> Binder::bindCopyRelFrom(const parser::Statement&
             columnExprs.push_back(std::move(expr));
         }
     }
-    auto srcLookUpInfo = IndexLookupInfo(srcTableID, srcOffset, srcKey);
-    auto dstLookUpInfo = IndexLookupInfo(dstTableID, dstOffset, dstKey);
+    auto srcLookUpInfo = IndexLookupInfo(srcNodeEntry, srcOffset, srcKey);
+    auto dstLookUpInfo = IndexLookupInfo(dstNodeEntry, dstOffset, dstKey);
     auto extraCopyRelInfo = std::make_unique<ExtraBoundCopyRelInfo>();
     extraCopyRelInfo->infos.push_back(std::move(srcLookUpInfo));
     extraCopyRelInfo->infos.push_back(std::move(dstLookUpInfo));
@@ -233,23 +239,17 @@ void bindExpectedNodeColumns(NodeTableCatalogEntry* nodeTableEntry,
     bindExpectedColumns(nodeTableEntry, inputColumnNames, columnNames, columnTypes);
 }
 
-void bindExpectedRelColumns(RelTableCatalogEntry* relTableEntry,
-    const std::vector<std::string>& inputColumnNames, std::vector<std::string>& columnNames,
-    std::vector<LogicalType>& columnTypes, main::ClientContext* context) {
+void bindExpectedRelColumns(RelTableCatalogEntry* relTableEntry, NodeTableCatalogEntry* srcEntry,
+    NodeTableCatalogEntry* dstEntry, const std::vector<std::string>& inputColumnNames,
+    std::vector<std::string>& columnNames, std::vector<LogicalType>& columnTypes) {
     KU_ASSERT(columnNames.empty() && columnTypes.empty());
-    auto catalog = context->getCatalog();
-    auto srcEntry = catalog->getTableCatalogEntry(context->getTx(), relTableEntry->getSrcTableID());
-    auto srcTable = ku_dynamic_cast<TableCatalogEntry*, NodeTableCatalogEntry*>(srcEntry);
-    auto dstEntry = catalog->getTableCatalogEntry(context->getTx(), relTableEntry->getDstTableID());
-    auto dstTable = ku_dynamic_cast<TableCatalogEntry*, NodeTableCatalogEntry*>(dstEntry);
     columnNames.push_back("from");
     columnNames.push_back("to");
-    // TODO(Xiyang): we mos
-    auto srcPKColumnType = srcTable->getPrimaryKey()->getDataType().copy();
+    auto srcPKColumnType = srcEntry->getPrimaryKey()->getDataType().copy();
     if (srcPKColumnType.getLogicalTypeID() == LogicalTypeID::SERIAL) {
         srcPKColumnType = LogicalType::INT64();
     }
-    auto dstPKColumnType = dstTable->getPrimaryKey()->getDataType().copy();
+    auto dstPKColumnType = dstEntry->getPrimaryKey()->getDataType().copy();
     if (dstPKColumnType.getLogicalTypeID() == LogicalTypeID::SERIAL) {
         dstPKColumnType = LogicalType::INT64();
     }
