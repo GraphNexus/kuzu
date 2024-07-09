@@ -8,6 +8,7 @@
 #include "common/enums/join_type.h"
 #include "planner/join_order/cost_model.h"
 #include "planner/operator/extend/logical_extend.h"
+#include "planner/operator/logical_vectorize.h"
 #include "planner/operator/extend/logical_recursive_extend.h"
 #include "planner/operator/logical_node_label_filter.h"
 #include "planner/operator/scan/logical_scan_node_table.h"
@@ -102,6 +103,12 @@ static std::shared_ptr<Expression> getIRIProperty(const expression_vector& prope
     return nullptr;
 }
 
+void Planner::appendVectorize(LogicalPlan& plan) {
+    auto vectorize = make_shared<LogicalVectorize>(plan.getLastOperator());
+    vectorize->computeFactorizedSchema();
+    plan.setLastOperator(std::move(vectorize));
+}
+
 void Planner::appendNonRecursiveExtend(const std::shared_ptr<NodeExpression>& boundNode,
     const std::shared_ptr<NodeExpression>& nbrNode, const std::shared_ptr<RelExpression>& rel,
     ExtendDirection direction, const expression_vector& properties, LogicalPlan& plan) {
@@ -149,6 +156,7 @@ void Planner::appendNonRecursiveExtend(const std::shared_ptr<NodeExpression>& bo
         appendHashJoin(expression_vector{rdfInfo->predicateID}, JoinType::INNER, plan, *tmpPlan,
             plan);
     }
+    appendVectorize(plan);
 }
 
 void Planner::appendRecursiveExtend(const std::shared_ptr<NodeExpression>& boundNode,

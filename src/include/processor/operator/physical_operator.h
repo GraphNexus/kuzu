@@ -68,6 +68,7 @@ enum class PhysicalOperatorType : uint8_t {
     UNION_ALL_SCAN,
     UNWIND,
     USE_DATABASE,
+    VECTORIZE,
 };
 
 class PhysicalOperatorUtils {

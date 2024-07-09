@@ -85,6 +85,9 @@ void LogicalOperatorVisitor::visitOperatorSwitch(LogicalOperator* op) {
     case LogicalOperatorType::GDS_CALL: {
         visitGDSCall(op);
     } break;
+    case LogicalOperatorType::VECTORIZE: {
+        visitVectorize(op);
+    } break;
     default:
         return;
     }
@@ -170,6 +173,9 @@ std::shared_ptr<LogicalOperator> LogicalOperatorVisitor::visitOperatorReplaceSwi
     }
     case LogicalOperatorType::GDS_CALL: {
         return visitGDSCallReplace(op);
+    }
+    case LogicalOperatorType::VECTORIZE: {
+        return visitVectorizeReplace(op);
     }
     default:
         return op;

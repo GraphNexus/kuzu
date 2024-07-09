@@ -270,6 +270,8 @@ private:
     void appendFlattens(const f_group_pos_set& groupsPos, LogicalPlan& plan);
     void appendFlattenIfNecessary(f_group_pos groupPos, LogicalPlan& plan);
 
+    void appendVectorize(LogicalPlan& plan);
+
     void appendFilters(const binder::expression_vector& predicates, LogicalPlan& plan);
     void appendFilter(const std::shared_ptr<binder::Expression>& predicate, LogicalPlan& plan);
 
