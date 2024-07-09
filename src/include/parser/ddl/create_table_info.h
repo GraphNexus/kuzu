@@ -77,11 +77,10 @@ struct ExtraCreateRelTableReferenceInfo : public ExtraCreateTableReferenceInfo {
     std::string srcTableName;
     std::string dstTableName;
 
-    ExtraCreateRelTableReferenceInfo(std::string srcTableName, std::string dstTableName,
-        std::string externalDBName, std::string externalTableName, std::string primaryKeyName)
-        : ExtraCreateTableReferenceInfo(std::move(externalDBName), std::move(externalTableName),
-              std::move(primaryKeyName)), srcTableName{std::move(srcTableName)},
-          dstTableName{std::move(dstTableName)} {}
+    ExtraCreateRelTableReferenceInfo(std::string externalDBName, std::string externalTableName,
+        std::string srcTableName, std::string dstTableName)
+        : ExtraCreateTableReferenceInfo{std::move(externalDBName), std::move(externalTableName),
+              ""}, srcTableName{std::move(srcTableName)}, dstTableName{std::move(dstTableName)} {}
 };
 
 struct ExtraCreateRelTableInfo : public ExtraCreateTableInfo {

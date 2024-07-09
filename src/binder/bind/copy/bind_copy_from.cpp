@@ -125,7 +125,7 @@ std::unique_ptr<BoundStatement> Binder::bindCopyNodeFrom(const Statement& statem
 }
 
 std::unique_ptr<BoundStatement> Binder::bindCopyRelFrom(const parser::Statement& statement,
-    RelTableCatalogEntry* relTableEntry) {
+    RelTableCatalogEntry* relTableEntry, NodeTableCatalogEntry* srcNodeEnrey) {
     auto& copyStatement = ku_dynamic_cast<const Statement&, const CopyFrom&>(statement);
     if (copyStatement.byColumn()) {
         throw BinderException(
@@ -244,6 +244,7 @@ void bindExpectedRelColumns(RelTableCatalogEntry* relTableEntry,
     auto dstTable = ku_dynamic_cast<TableCatalogEntry*, NodeTableCatalogEntry*>(dstEntry);
     columnNames.push_back("from");
     columnNames.push_back("to");
+    // TODO(Xiyang): we mos
     auto srcPKColumnType = srcTable->getPrimaryKey()->getDataType().copy();
     if (srcPKColumnType.getLogicalTypeID() == LogicalTypeID::SERIAL) {
         srcPKColumnType = LogicalType::INT64();

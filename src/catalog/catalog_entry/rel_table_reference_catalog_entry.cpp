@@ -25,11 +25,11 @@ std::unique_ptr<RelTableReferenceCatalogEntry> RelTableReferenceCatalogEntry::de
 }
 
 std::unique_ptr<TableCatalogEntry> RelTableReferenceCatalogEntry::copy() const {
-
+    return nullptr;
 }
 
-std::unique_ptr<BoundExtraCreateCatalogEntryInfo> RelTableReferenceCatalogEntry::getBoundExtraCreateInfo(transaction::Transaction* transaction) const {
-
+std::unique_ptr<BoundExtraCreateCatalogEntryInfo> RelTableReferenceCatalogEntry::getBoundExtraCreateInfo(Transaction* ) const {
+    return nullptr;
 }
 
 }

@@ -35,7 +35,7 @@ void Planner::appendScanNodeTable(const Expression& expr, const expression_vecto
         auto physicalEntry = referenceEntry->getPhysicalEntry()->ptrCast<NodeTableCatalogEntry>();
         auto pkIdx = referenceEntry->getPrimaryKeyIdx();
         auto pkExpr = node.getPropertyExpression(pkIdx);
-        std::vector<LogicalTableScanInfo> tableScanInfos;
+        std::vector<LogicalNodeTableScanInfo> tableScanInfos;
         tableScanInfos.emplace_back(physicalEntry->getTableID(), std::vector<column_id_t>{physicalEntry->getPrimaryKey()->getColumnID()});
         appendScanNodeTable(node.getInternalID(), {pkExpr}, tableScanInfos, buildPlan);
         // Scan from external table
@@ -72,7 +72,7 @@ static std::vector<column_id_t> getColumnIDs(TableCatalogEntry* entry, const exp
 void Planner::appendScanNodeTable(std::shared_ptr<Expression> nodeID,
     std::vector<table_id_t> tableIDs, const expression_vector& properties, LogicalPlan& plan) {
     auto propertiesToScan_ = removeInternalIDProperty(properties);
-    std::vector<LogicalTableScanInfo> tableScanInfos;
+    std::vector<LogicalNodeTableScanInfo> tableScanInfos;
     for (auto& tableID : tableIDs) {
         auto entry = clientContext->getCatalog()->getTableCatalogEntry(clientContext->getTx(), tableID);
         tableScanInfos.emplace_back(tableID, getColumnIDs(entry, propertiesToScan_));
@@ -81,7 +81,7 @@ void Planner::appendScanNodeTable(std::shared_ptr<Expression> nodeID,
 }
 
 void Planner::appendScanNodeTable(std::shared_ptr<Expression> nodeID,
-    const expression_vector& properties, const std::vector<LogicalTableScanInfo>& tableScanInfos, LogicalPlan& plan) {
+    const expression_vector& properties, const std::vector<LogicalNodeTableScanInfo>& tableScanInfos, LogicalPlan& plan) {
     auto scan = make_shared<LogicalScanNodeTable>(std::move(nodeID), properties, std::move(tableScanInfos));
     scan->computeFactorizedSchema();
     plan.setCardinality(cardinalityEstimator.estimateScanNode(scan.get()));

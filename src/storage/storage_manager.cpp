@@ -5,6 +5,7 @@
 #include "catalog/catalog_entry/rdf_graph_catalog_entry.h"
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "catalog/catalog_entry/node_table_reference_catalog_entry.h"
+#include "catalog/catalog_entry/rel_table_reference_catalog_entry.h"
 #include "common/file_system/virtual_file_system.h"
 #include "main/client_context.h"
 #include "main/database.h"
@@ -181,6 +182,11 @@ void StorageManager::createTable(table_id_t tableID, Catalog* catalog,
         createRelTable(tableID, tableEntry->ptrCast<RelTableCatalogEntry>(), catalog,
             context->getTx());
     } break;
+    case TableType::REL_REFERENCE: {
+        auto referenceEntry = tableEntry->ptrCast<RelTableReferenceCatalogEntry>();
+        auto relEntry = referenceEntry->getPhysicalEntry()->ptrCast<RelTableCatalogEntry>();
+        createRelTable(relEntry->getTableID(), relEntry, catalog, context->getTx());
+    } break ;
     case TableType::REL_GROUP: {
         createRelTableGroup(tableID, tableEntry->ptrCast<RelGroupCatalogEntry>(), catalog,
             context->getTx());

@@ -751,7 +751,6 @@ public:
     antlr4::tree::TerminalNode *AS();
     KU_TableLookupContext *kU_TableLookup();
     KU_RelTableConnectionContext *kU_RelTableConnection();
-    KU_PrimaryKeyConstraintContext *kU_PrimaryKeyConstraint();
 
    
   };

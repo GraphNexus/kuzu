@@ -48,7 +48,7 @@ std::unique_ptr<Statement> Transformer::transformCreateNodeTableReference(Cypher
     auto dbName = transformSchemaName(*ctx.oC_SchemaName(1));
     auto externalTableName = transformSchemaName(*ctx.kU_TableLookup()->oC_SchemaName());
     auto primaryKeyName = transformPrimaryKey(*ctx.kU_PrimaryKeyConstraint());
-    createTableInfo.extraInfo = std::make_unique<ExtraCreateNodeTableReferenceInfo>(
+    createTableInfo.extraInfo = std::make_unique<ExtraCreateTableReferenceInfo>(
         dbName, externalTableName, primaryKeyName);
     return std::make_unique<CreateTable>(std::move(createTableInfo));
 }
@@ -56,11 +56,11 @@ std::unique_ptr<Statement> Transformer::transformCreateNodeTableReference(Cypher
 std::unique_ptr<Statement> Transformer::transformCreateRelTableReference(CypherParser::KU_CreateRelTableReferenceContext& ctx) {
     auto tableName = transformSchemaName(*ctx.oC_SchemaName(0));
     auto createTableInfo = CreateTableInfo(TableType::REL_REFERENCE, tableName);
+    auto dbName = transformSchemaName(*ctx.oC_SchemaName(1));
+    auto externalTableName = transformSchemaName(*ctx.kU_TableLookup()->oC_SchemaName());
     auto [srcTableName, dstTableName] = transformRelTableConnection(*ctx.kU_RelTableConnection());
-    auto srcColumnName = transformSchemaName(*ctx.oC_SchemaName(1));
-    auto dstColumnName = transformSchemaName(*ctx.oC_SchemaName(2));
-    auto primaryKeyName = transformPrimaryKey(*ctx.kU_PrimaryKeyConstraint());
-    createTableInfo.extraInfo = std::make_unique<ExtraCreateRelTableReferenceInfo>(srcTableName, dstTableName,);
+    createTableInfo.extraInfo = std::make_unique<ExtraCreateRelTableReferenceInfo>(dbName, externalTableName, srcTableName, dstTableName);
+    return std::make_unique<CreateTable>(std::move(createTableInfo));
 }
 
 std::unique_ptr<Statement> Transformer::transformCreateRelTable(

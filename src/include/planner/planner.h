@@ -25,7 +25,7 @@ class BoundProjectionBody;
 } // namespace binder
 namespace planner {
 
-struct LogicalTableScanInfo;
+struct LogicalNodeTableScanInfo;
 struct LogicalInsertInfo;
 
 enum class SubqueryType : uint8_t {
@@ -241,7 +241,7 @@ public:
         LogicalPlan& plan);
     void appendScanNodeTable(std::shared_ptr<binder::Expression> nodeID,
         const binder::expression_vector& properties,
-        const std::vector<LogicalTableScanInfo>& tableScanInfos, LogicalPlan& plan);
+        const std::vector<LogicalNodeTableScanInfo>& tableScanInfos, LogicalPlan& plan);
 
     // Append extend operators
     void appendNonRecursiveExtend(const std::shared_ptr<binder::NodeExpression>& boundNode,

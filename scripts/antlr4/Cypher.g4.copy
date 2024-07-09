@@ -97,7 +97,7 @@ kU_IfNotExists
     : IF SP NOT SP EXISTS ;
 
 kU_CreateNodeTable
-    : CREATE SP NODE SP TABLE SP (kU_IfNotExists SP)? oC_SchemaName SP? '(' SP? kU_PropertyDefinitionsDDL SP? kU_PrimaryKeyConstraint SP? ')' ;
+    : CREATE SP NODE SP TABLE SP (kU_IfNotExists SP)? oC_SchemaName SP? '(' SP? kU_PropertyDefinitionsDDL SP? ',' SP? kU_PrimaryKeyConstraint SP? ')' ;
 
 // TODO(Xiyang): we should consider merging this with CreateNodeTable
 kU_CreateNodeTableReference
@@ -107,7 +107,7 @@ kU_CreateRelTable
     : CREATE SP REL SP TABLE SP (kU_IfNotExists SP)? oC_SchemaName SP? '(' SP? kU_RelTableConnection SP? ( ',' SP? kU_PropertyDefinitionsDDL SP? )? ( ',' SP? oC_SymbolicName SP? )?  ')' ;
 
 kU_CreateRelTableReference
-    : CREATE SP EXTERNAL SP REL SP TABLE SP oC_SchemaName SP AS SP oC_SchemaName kU_TableLookup SP? '(' SP? kU_RelTableConnection SP? ',' SP? oC_SchemaName SP? ',' SP? oC_SchemaName SP? ',' SP? kU_PrimaryKeyConstraint ')' ;
+    : CREATE SP EXTERNAL SP REL SP TABLE SP oC_SchemaName SP AS SP oC_SchemaName kU_TableLookup SP? '(' SP? kU_RelTableConnection SP? ')' ;
 
 kU_CreateRelTableGroup
     : CREATE SP REL SP TABLE SP GROUP SP (kU_IfNotExists SP)? oC_SchemaName SP? '(' SP? kU_RelTableConnection ( SP? ',' SP? kU_RelTableConnection )+ SP? ( ',' SP? kU_PropertyDefinitionsDDL SP? )? ( ',' SP? oC_SymbolicName SP? )?  ')' ;
@@ -177,7 +177,7 @@ kU_PropertyDefinitionsDDL : kU_PropertyDefinitionDDL ( SP? ',' SP? kU_PropertyDe
 
 kU_PropertyDefinitionDDL : oC_PropertyKeyName SP kU_DataType ( SP kU_Default )? ;
 
-kU_PrimaryKeyConstraint : ',' SP? PRIMARY SP KEY SP? '(' SP? oC_PropertyKeyName SP? ')' ;
+kU_PrimaryKeyConstraint : PRIMARY SP KEY SP? '(' SP? oC_PropertyKeyName SP? ')' ;
 
 DECIMAL: ( 'D' | 'd' ) ( 'E' | 'e' ) ( 'C' | 'c' ) ( 'I' | 'i' ) ( 'M' | 'm' ) ( 'A' | 'a' ) ( 'L' | 'l' ) ;
 

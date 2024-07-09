@@ -102,7 +102,7 @@ public:
     BoundCreateTableInfo bindCreateTableInfo(const parser::CreateTableInfo& info);
     BoundCreateTableInfo bindCreateNodeTableReferenceInfo(const parser::CreateTableInfo& info);
     BoundCreateTableInfo bindCreateNodeTableInfo(const parser::CreateTableInfo& info);
-    BoundCreateTableInfo bindCreateExternalRelTableInfo(const parser::CreateTableInfo& info);
+    BoundCreateTableInfo bindCreateRelTableReferenceInfo(const parser::CreateTableInfo& info);
     BoundCreateTableInfo bindCreateRelTableInfo(const parser::CreateTableInfo& info);
     BoundCreateTableInfo bindCreateRelTableGroupInfo(const parser::CreateTableInfo& info);
     BoundCreateTableInfo bindCreateRdfGraphInfo(const parser::CreateTableInfo& info);
@@ -129,7 +129,8 @@ public:
     std::unique_ptr<BoundStatement> bindCopyNodeFrom(const parser::Statement& statement,
         catalog::NodeTableCatalogEntry* nodeTableEntry);
     std::unique_ptr<BoundStatement> bindCopyRelFrom(const parser::Statement& statement,
-        catalog::RelTableCatalogEntry* relTableEntry);
+        catalog::RelTableCatalogEntry* relTableEntry, catalog::NodeTableCatalogEntry* srcNodeEntry,
+        catalog::NodeTableCatalogEntry* dstNodeEntry);
     std::unique_ptr<BoundStatement> bindCopyRdfFrom(const parser::Statement& statement,
         catalog::RDFGraphCatalogEntry* rdfGraphEntry);
 
