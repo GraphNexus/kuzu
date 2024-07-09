@@ -328,6 +328,7 @@ std::shared_ptr<RelExpression> Binder::createNonRecursiveQueryRel(const std::str
     }
     auto extraInfo = std::make_unique<StructTypeInfo>(std::move(fields));
     queryRel->setExtraTypeInfo(std::move(extraInfo));
+    bindExternalTableReference(*queryRel);
     return queryRel;
 }
 
@@ -586,54 +587,39 @@ std::shared_ptr<NodeExpression> Binder::createQueryNode(const std::string& parse
     // Bind data type.
     auto extraInfo = std::make_unique<StructTypeInfo>(fieldNames, fieldTypes);
     queryNode->setExtraTypeInfo(std::move(extraInfo));
-    // Bind m
-    auto catalog = clientContext->getCatalog();
-    auto transaction = clientContext->getTx();
-    if (tableIDs.size() == 1) {
-        auto entry = catalog->getTableCatalogEntry(transaction, tableIDs[0]);
-        if (entry->getType() == CatalogEntryType::NODE_TABLE_REFERENCE_ENTRY) {
-            auto& referenceEntry = entry->constCast<NodeTableReferenceCatalogEntry>();
-            auto externalDBName = referenceEntry.getExternalDBName();
-            auto externalTableName = referenceEntry.getExternalTableName();
-            auto externalEntry = bindExternalTableEntry(externalDBName, externalTableName)->ptrCast<TableCatalogEntry>();
-            queryNode->setExternalEntry(externalEntry);
-        }
-    }
+    // Bind external reference
+    bindExternalTableReference(*queryNode);
     return queryNode;
 }
 
 void Binder::bindQueryNodeProperties(NodeExpression& node) {
     auto catalog = clientContext->getCatalog();
-    auto transaction = clientContext->getTx();
-//    if (node.refersToExternalTable(*catalog, transaction)) {
-//        auto entry = catalog->getTableCatalogEntry(transaction, node.getSingleTableID())->ptrCast<NodeTableCatalogEntry>();
-//        auto externalEntry = bindExternalTableEntry(entry->getExternalDBName(), entry->getExternalTableName())->ptrCast<TableCatalogEntry>();
-//        auto& internalProperties = entry->getProperties();
-//        KU_ASSERT(internalProperties.size() == 1);
-//        node.addPropertyExpression(internalProperties[0].getName(), createPropertyExpression(internalProperties[0].getName(), node, {entry}));
-//        auto& externalProperties = externalEntry->getProperties();
-//        for (auto i = 1u; i < externalProperties.size(); ++i) {
-//            auto& property = externalProperties[i];
-//            auto expr = createPropertyExpression(property.getName(), node, {externalEntry});
-//            node.addPropertyExpression(property.getName(), std::move(expr));
-//        }
-//        auto properties = node.getPropertyExprs();
-//        auto scanFunction = externalEntry->getScanFunction();
-//        auto bindInput = function::TableFuncBindInput();
-//        auto bindData = scanFunction.bindFunc(clientContext, &bindInput);
-//        expression_vector columns = properties;
-//        auto left = properties[0];
-//        auto right = columns[0];
-//        auto scanInfo = BoundFileScanInfo(scanFunction, std::move(bindData), std::move(columns));
-//        auto externalTableInfo = std::make_unique<ExternalTableInfo>(std::move(scanInfo), left, right);
-//        node.setExternalTableInfo(std::move(externalTableInfo));
-//        return ;
-//    }
     auto entries = catalog->getTableEntries(clientContext->getTx(), node.getTableIDs());
     auto propertyNames = getPropertyNames(entries);
     for (auto& propertyName : propertyNames) {
         auto property = createPropertyExpression(propertyName, node, entries);
         node.addPropertyExpression(propertyName, std::move(property));
+    }
+}
+
+void Binder::bindExternalTableReference(NodeOrRelExpression& nodeOrRel) {
+    if (nodeOrRel.isMultiLabeled()) {
+        return ;
+    }
+    auto catalog = clientContext->getCatalog();
+    auto transaction = clientContext->getTx();
+    auto entry = catalog->getTableCatalogEntry(transaction, nodeOrRel.getSingleTableID());
+    switch (entry->getType()) {
+    case CatalogEntryType::NODE_TABLE_REFERENCE_ENTRY:
+    case CatalogEntryType::REL_TABLE_REFERENCE_ENTRY: {
+        auto& referenceEntry = entry->constCast<NodeTableReferenceCatalogEntry>();
+        auto externalDBName = referenceEntry.getExternalDBName();
+        auto externalTableName = referenceEntry.getExternalTableName();
+        auto externalEntry = bindExternalTableEntry(externalDBName, externalTableName)->ptrCast<TableCatalogEntry>();
+        nodeOrRel.setExternalEntry(externalEntry);
+    } break ;
+    default:
+        break ;
     }
 }
 

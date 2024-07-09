@@ -47,11 +47,11 @@ struct PrimaryKeyScanInfo final : ExtraScanNodeTableInfo {
     }
 };
 
-struct LogicalTableScanInfo {
+struct LogicalNodeTableScanInfo {
     common::table_id_t tableID;
     std::vector<common::column_id_t> columnIDs;
 
-    LogicalTableScanInfo(common::table_id_t tableID, std::vector<common::column_id_t> columnIDs)
+    LogicalNodeTableScanInfo(common::table_id_t tableID, std::vector<common::column_id_t> columnIDs)
         : tableID{tableID}, columnIDs{std::move(columnIDs)} {}
 };
 
@@ -85,7 +85,7 @@ public:
 
     binder::expression_vector getProperties() const { return properties; }
 
-    const std::vector<LogicalTableScanInfo>& getTableScanInfo() const {
+    const std::vector<LogicalNodeTableScanInfo>& getTableScanInfo() const {
         return tableScanInfo;
     }
     std::vector<common::table_id_t> getTableIDs() const {
@@ -115,7 +115,7 @@ private:
     LogicalScanNodeTableType scanType;
     std::shared_ptr<binder::Expression> nodeID;
     binder::expression_vector properties;
-    std::vector<LogicalTableScanInfo> tableScanInfo;
+    std::vector<LogicalNodeTableScanInfo> tableScanInfo;
     // TODO(Xiyang): merge this with table scanInfo?
     std::vector<storage::ColumnPredicateSet> propertyPredicates;
     std::unique_ptr<ExtraScanNodeTableInfo> extraInfo;

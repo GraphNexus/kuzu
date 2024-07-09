@@ -5,6 +5,7 @@
 #include "catalog/catalog_entry/node_table_reference_catalog_entry.h"
 #include "catalog/catalog_entry/rdf_graph_catalog_entry.h"
 #include "catalog/catalog_entry/rel_table_catalog_entry.h"
+#include "catalog/catalog_entry/rel_table_reference_catalog_entry.h"
 #include "common/enums/table_type.h"
 #include "common/exception/binder.h"
 #include "common/string_format.h"
@@ -50,6 +51,11 @@ std::unique_ptr<BoundStatement> Binder::bindCopyFromClause(const Statement& stat
     case TableType::REL: {
         auto relTableEntry = ku_dynamic_cast<TableCatalogEntry*, RelTableCatalogEntry*>(tableEntry);
         return bindCopyRelFrom(statement, relTableEntry);
+    }
+    case TableType::REL_REFERENCE: {
+        auto& referenceEntry = tableEntry->constCast<RelTableReferenceCatalogEntry>();
+        auto physicalEntry = referenceEntry.getPhysicalEntry();
+        return bindCopyRelFrom(statement, physicalEntry->ptrCast<RelTableCatalogEntry>());
     }
     case TableType::RDF: {
         auto rdfGraphEntry = ku_dynamic_cast<TableCatalogEntry*, RDFGraphCatalogEntry*>(tableEntry);

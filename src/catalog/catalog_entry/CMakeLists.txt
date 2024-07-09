@@ -2,13 +2,15 @@ add_library(kuzu_catalog_entry
         OBJECT
         catalog_entry.cpp
         catalog_entry_type.cpp
-        node_table_reference_catalog_entry.cpp
         function_catalog_entry.cpp
         table_catalog_entry.cpp
         node_table_catalog_entry.cpp
+        node_table_reference_catalog_entry.cpp
         rel_table_catalog_entry.cpp
+        rel_table_reference_catalog_entry.cpp
         rel_group_catalog_entry.cpp
         rdf_graph_catalog_entry.cpp
+        reference_catalog_entry.cpp
         scalar_macro_catalog_entry.cpp
         type_catalog_entry.cpp
         sequence_catalog_entry.cpp)

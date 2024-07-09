@@ -28,8 +28,8 @@ std::string TableTypeUtils::toString(TableType tableType) {
     case TableType::NODE_REFERENCE: {
         return "NODE_REFERENCE";
     }
-    case TableType::EXTERNAL_REL: {
-        return "EXTERNAL_REL";
+    case TableType::REL_REFERENCE: {
+        return "REL_REFERENCE";
     }
     default:
         KU_UNREACHABLE;

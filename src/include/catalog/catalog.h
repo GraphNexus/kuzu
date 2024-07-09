@@ -167,8 +167,10 @@ private:
     std::unique_ptr<CatalogEntry> createNodeTableEntry(transaction::Transaction* transaction,
         common::table_id_t tableID, const binder::BoundCreateTableInfo& info) const;
     std::unique_ptr<CatalogEntry> createNodeTableReferenceEntry(transaction::Transaction* transaction,
-        common::table_id_t tableID, const binder::BoundCreateTableInfo& info);
+        common::table_id_t tableID, const binder::BoundCreateTableInfo& info) const;
     std::unique_ptr<CatalogEntry> createRelTableEntry(transaction::Transaction* transaction,
+        common::table_id_t tableID, const binder::BoundCreateTableInfo& info) const;
+    std::unique_ptr<CatalogEntry> createRelTableReferenceEntry(transaction::Transaction* transaction,
         common::table_id_t tableID, const binder::BoundCreateTableInfo& info) const;
     std::unique_ptr<CatalogEntry> createRelTableGroupEntry(transaction::Transaction* transaction,
         common::table_id_t tableID, const binder::BoundCreateTableInfo& info);

@@ -48,23 +48,19 @@ std::unique_ptr<Statement> Transformer::transformCreateNodeTableReference(Cypher
     auto dbName = transformSchemaName(*ctx.oC_SchemaName(1));
     auto externalTableName = transformSchemaName(*ctx.kU_TableLookup()->oC_SchemaName());
     auto primaryKeyName = transformPrimaryKey(*ctx.kU_PrimaryKeyConstraint());
-    createTableInfo.extraInfo = std::make_unique<ExtraCreateExternalNodeTableInfo>(
+    createTableInfo.extraInfo = std::make_unique<ExtraCreateNodeTableReferenceInfo>(
         dbName, externalTableName, primaryKeyName);
     return std::make_unique<CreateTable>(std::move(createTableInfo));
 }
 
-std::unique_ptr<Statement> Transformer::transformCreateExternalRelTable(
-    CypherParser::KU_CreateExternalRelTableContext& ctx) {
-    KU_ASSERT(ctx.oC_SchemaName().size() == 3);
+std::unique_ptr<Statement> Transformer::transformCreateRelTableReference(CypherParser::KU_CreateRelTableReferenceContext& ctx) {
     auto tableName = transformSchemaName(*ctx.oC_SchemaName(0));
-    auto createTableInfo = CreateTableInfo(TableType::EXTERNAL_REL, tableName);
+    auto createTableInfo = CreateTableInfo(TableType::REL_REFERENCE, tableName);
     auto [srcTableName, dstTableName] = transformRelTableConnection(*ctx.kU_RelTableConnection());
-    auto fromColumnName = transformSchemaName(*ctx.oC_SchemaName(1));
-    auto toColumnName = transformSchemaName(*ctx.oC_SchemaName(2));
+    auto srcColumnName = transformSchemaName(*ctx.oC_SchemaName(1));
+    auto dstColumnName = transformSchemaName(*ctx.oC_SchemaName(2));
     auto primaryKeyName = transformPrimaryKey(*ctx.kU_PrimaryKeyConstraint());
-    createTableInfo.extraInfo = std::make_unique<ExtraCreateExternalRelTableInfo>(
-        srcTableName, dstTableName, fromColumnName, toColumnName, primaryKeyName);
-    return std::make_unique<CreateTable>(std::move(createTableInfo));
+    createTableInfo.extraInfo = std::make_unique<ExtraCreateRelTableReferenceInfo>(srcTableName, dstTableName,);
 }
 
 std::unique_ptr<Statement> Transformer::transformCreateRelTable(

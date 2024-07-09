@@ -9,7 +9,7 @@ oC_Statement
     : oC_Query
         | kU_CreateNodeTable
         | kU_CreateNodeTableReference
-        | kU_CreateExternalRelTable
+        | kU_CreateRelTableReference
         | kU_CreateRelTable
         | kU_CreateRelTableGroup
         | kU_CreateRdfGraph
@@ -101,13 +101,13 @@ kU_CreateNodeTable
 
 // TODO(Xiyang): we should consider merging this with CreateNodeTable
 kU_CreateNodeTableReference
-    : CREATE SP NODE SP TABLE SP oC_SchemaName SP AS SP '(' SP? oC_SchemaName kU_TableLookup SP? kU_PrimaryKeyConstraint SP? ')' ;
+    : CREATE SP EXTERNAL SP NODE SP TABLE SP oC_SchemaName SP AS SP oC_SchemaName kU_TableLookup SP? '(' SP? kU_PrimaryKeyConstraint SP? ')' ;
 
 kU_CreateRelTable
     : CREATE SP REL SP TABLE SP (kU_IfNotExists SP)? oC_SchemaName SP? '(' SP? kU_RelTableConnection SP? ( ',' SP? kU_PropertyDefinitionsDDL SP? )? ( ',' SP? oC_SymbolicName SP? )?  ')' ;
 
-kU_CreateExternalRelTable
-    : CREATE SP EXTERNAL SP REL SP TABLE SP oC_SchemaName SP '(' SP? kU_RelTableConnection SP? ',' SP? oC_SchemaName SP? ',' SP? oC_SchemaName SP? ',' SP? kU_PrimaryKeyConstraint ')' ;
+kU_CreateRelTableReference
+    : CREATE SP EXTERNAL SP REL SP TABLE SP oC_SchemaName SP AS SP oC_SchemaName kU_TableLookup SP? '(' SP? kU_RelTableConnection SP? ',' SP? oC_SchemaName SP? ',' SP? oC_SchemaName SP? ',' SP? kU_PrimaryKeyConstraint ')' ;
 
 kU_CreateRelTableGroup
     : CREATE SP REL SP TABLE SP GROUP SP (kU_IfNotExists SP)? oC_SchemaName SP? '(' SP? kU_RelTableConnection ( SP? ',' SP? kU_RelTableConnection )+ SP? ( ',' SP? kU_PropertyDefinitionsDDL SP? )? ( ',' SP? oC_SymbolicName SP? )?  ')' ;

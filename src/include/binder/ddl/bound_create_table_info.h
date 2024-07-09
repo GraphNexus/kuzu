@@ -96,28 +96,6 @@ struct BoundExtraCreateNodeTableInfo final : public BoundExtraCreateTableInfo {
     }
 };
 
-struct BoundExtraCreateNodeTableReferenceInfo : public BoundExtraCreateTableInfo {
-    common::idx_t primaryKeyIdx;
-    std::string externalDBName;
-    std::string externalTableName;
-    BoundCreateTableInfo physicalInfo;
-
-    BoundExtraCreateNodeTableReferenceInfo(std::vector<PropertyInfo> propertyInfos,
-        common::idx_t primaryKeyIdx, std::string externalDBName,
-        std::string externalTableName, BoundCreateTableInfo physicalInfo)
-        : BoundExtraCreateTableInfo{std::move(propertyInfos)}, primaryKeyIdx{primaryKeyIdx},
-          externalDBName{std::move(externalDBName)}, externalTableName{std::move(externalTableName)},
-          physicalInfo{std::move(physicalInfo)} {}
-    BoundExtraCreateNodeTableReferenceInfo(const BoundExtraCreateNodeTableReferenceInfo& other)
-        : BoundExtraCreateTableInfo{copyVector(other.propertyInfos)},
-          primaryKeyIdx{other.primaryKeyIdx}, externalDBName{other.externalDBName},
-          externalTableName{other.externalTableName}, physicalInfo{other.physicalInfo.copy()} {}
-
-    std::unique_ptr<BoundExtraCreateCatalogEntryInfo> copy() const override {
-        return std::make_unique<BoundExtraCreateNodeTableReferenceInfo>(*this);
-    }
-};
-
 struct BoundExtraCreateRelTableInfo final : public BoundExtraCreateTableInfo {
     common::RelMultiplicity srcMultiplicity;
     common::RelMultiplicity dstMultiplicity;
@@ -136,6 +114,48 @@ struct BoundExtraCreateRelTableInfo final : public BoundExtraCreateTableInfo {
 
     std::unique_ptr<BoundExtraCreateCatalogEntryInfo> copy() const override {
         return std::make_unique<BoundExtraCreateRelTableInfo>(*this);
+    }
+};
+
+struct BoundExtraCreateTableReferenceInfo : public BoundExtraCreateTableInfo {
+    common::idx_t primaryKeyIdx;
+    std::string externalDBName;
+    std::string externalTableName;
+    BoundCreateTableInfo physicalInfo;
+
+    BoundExtraCreateTableReferenceInfo(std::vector<PropertyInfo> propertyInfos,
+        common::idx_t primaryKeyIdx, std::string externalDBName,
+        std::string externalTableName, BoundCreateTableInfo physicalInfo)
+        : BoundExtraCreateTableInfo{std::move(propertyInfos)}, primaryKeyIdx{primaryKeyIdx},
+          externalDBName{std::move(externalDBName)}, externalTableName{std::move(externalTableName)},
+          physicalInfo{std::move(physicalInfo)} {}
+    BoundExtraCreateTableReferenceInfo(const BoundExtraCreateTableReferenceInfo& other)
+        : BoundExtraCreateTableInfo{copyVector(other.propertyInfos)},
+          primaryKeyIdx{other.primaryKeyIdx}, externalDBName{other.externalDBName},
+          externalTableName{other.externalTableName}, physicalInfo{other.physicalInfo.copy()} {}
+
+    std::unique_ptr<BoundExtraCreateCatalogEntryInfo> copy() const override {
+        return std::make_unique<BoundExtraCreateTableReferenceInfo>(*this);
+    }
+};
+
+struct BoundExtraCreateRelTableReferenceInfo : public BoundExtraCreateTableReferenceInfo {
+    common::table_id_t srcTableID;
+    common::table_id_t dstTableID;
+
+    BoundExtraCreateRelTableReferenceInfo(std::vector<PropertyInfo> propertyInfos,
+        common::idx_t primaryKeyIdx, std::string externalDBName,
+        std::string externalTableName, BoundCreateTableInfo physicalInfo,
+        common::table_id_t srcTableID, common::table_id_t dstTableID)
+        : BoundExtraCreateTableReferenceInfo{std::move(propertyInfos), primaryKeyIdx,
+              std::move(externalDBName), std::move(externalTableName), std::move(physicalInfo)},
+          srcTableID{srcTableID}, dstTableID{dstTableID} {}
+    BoundExtraCreateRelTableReferenceInfo(const BoundExtraCreateRelTableReferenceInfo& other)
+        : BoundExtraCreateTableReferenceInfo{other}, srcTableID{other.srcTableID},
+          dstTableID{other.dstTableID} {}
+
+    std::unique_ptr<BoundExtraCreateCatalogEntryInfo> copy() const override {
+        return std::make_unique<BoundExtraCreateRelTableReferenceInfo>(*this);
     }
 };
 

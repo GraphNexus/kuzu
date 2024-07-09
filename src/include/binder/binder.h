@@ -251,6 +251,8 @@ public:
         const std::vector<common::table_id_t>& tableIDs);
     void bindQueryNodeProperties(NodeExpression& node);
 
+    void bindExternalTableReference(NodeOrRelExpression& nodeOrRel);
+
     /*** bind table ID ***/
     // Bind table names to catalog table schemas. The function does NOT validate if the table schema
     // type matches node or rel pattern.

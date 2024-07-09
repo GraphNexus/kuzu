@@ -55,7 +55,7 @@ public:
     RuleKU_CommentOn = 16, RuleKU_CreateMacro = 17, RuleKU_PositionalArgs = 18, 
     RuleKU_DefaultArg = 19, RuleKU_FilePaths = 20, RuleKU_ParsingOptions = 21, 
     RuleKU_IfNotExists = 22, RuleKU_CreateNodeTable = 23, RuleKU_CreateNodeTableReference = 24, 
-    RuleKU_CreateRelTable = 25, RuleKU_CreateExternalRelTable = 26, RuleKU_CreateRelTableGroup = 27, 
+    RuleKU_CreateRelTable = 25, RuleKU_CreateRelTableReference = 26, RuleKU_CreateRelTableGroup = 27, 
     RuleKU_RelTableConnection = 28, RuleKU_CreateRdfGraph = 29, RuleKU_CreateSequence = 30, 
     RuleKU_CreateType = 31, RuleKU_SequenceOptions = 32, RuleKU_IncrementBy = 33, 
     RuleKU_MinValue = 34, RuleKU_MaxValue = 35, RuleKU_StartWith = 36, RuleKU_Cycle = 37, 
@@ -152,7 +152,7 @@ public:
   class KU_CreateNodeTableContext;
   class KU_CreateNodeTableReferenceContext;
   class KU_CreateRelTableContext;
-  class KU_CreateExternalRelTableContext;
+  class KU_CreateRelTableReferenceContext;
   class KU_CreateRelTableGroupContext;
   class KU_RelTableConnectionContext;
   class KU_CreateRdfGraphContext;
@@ -336,7 +336,7 @@ public:
     OC_QueryContext *oC_Query();
     KU_CreateNodeTableContext *kU_CreateNodeTable();
     KU_CreateNodeTableReferenceContext *kU_CreateNodeTableReference();
-    KU_CreateExternalRelTableContext *kU_CreateExternalRelTable();
+    KU_CreateRelTableReferenceContext *kU_CreateRelTableReference();
     KU_CreateRelTableContext *kU_CreateRelTable();
     KU_CreateRelTableGroupContext *kU_CreateRelTableGroup();
     KU_CreateRdfGraphContext *kU_CreateRdfGraph();
@@ -702,6 +702,7 @@ public:
     antlr4::tree::TerminalNode *CREATE();
     std::vector<antlr4::tree::TerminalNode *> SP();
     antlr4::tree::TerminalNode* SP(size_t i);
+    antlr4::tree::TerminalNode *EXTERNAL();
     antlr4::tree::TerminalNode *NODE();
     antlr4::tree::TerminalNode *TABLE();
     std::vector<OC_SchemaNameContext *> oC_SchemaName();
@@ -735,9 +736,9 @@ public:
 
   KU_CreateRelTableContext* kU_CreateRelTable();
 
-  class  KU_CreateExternalRelTableContext : public antlr4::ParserRuleContext {
+  class  KU_CreateRelTableReferenceContext : public antlr4::ParserRuleContext {
   public:
-    KU_CreateExternalRelTableContext(antlr4::ParserRuleContext *parent, size_t invokingState);
+    KU_CreateRelTableReferenceContext(antlr4::ParserRuleContext *parent, size_t invokingState);
     virtual size_t getRuleIndex() const override;
     antlr4::tree::TerminalNode *CREATE();
     std::vector<antlr4::tree::TerminalNode *> SP();
@@ -747,13 +748,15 @@ public:
     antlr4::tree::TerminalNode *TABLE();
     std::vector<OC_SchemaNameContext *> oC_SchemaName();
     OC_SchemaNameContext* oC_SchemaName(size_t i);
+    antlr4::tree::TerminalNode *AS();
+    KU_TableLookupContext *kU_TableLookup();
     KU_RelTableConnectionContext *kU_RelTableConnection();
     KU_PrimaryKeyConstraintContext *kU_PrimaryKeyConstraint();
 
    
   };
 
-  KU_CreateExternalRelTableContext* kU_CreateExternalRelTable();
+  KU_CreateRelTableReferenceContext* kU_CreateRelTableReference();
 
   class  KU_CreateRelTableGroupContext : public antlr4::ParserRuleContext {
   public:

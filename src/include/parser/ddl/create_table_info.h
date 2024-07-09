@@ -62,29 +62,26 @@ struct ExtraCreateNodeTableInfo : public ExtraCreateTableInfo {
     explicit ExtraCreateNodeTableInfo(std::string pKName) : pKName{std::move(pKName)} {}
 };
 
-struct ExtraCreateExternalNodeTableInfo : public ExtraCreateTableInfo {
+struct ExtraCreateTableReferenceInfo : public ExtraCreateTableInfo {
     std::string dbName;
     std::string tableName;
     std::string primaryKeyName;
 
-    ExtraCreateExternalNodeTableInfo(std::string dbName, std::string tableName,
+    ExtraCreateTableReferenceInfo(std::string dbName, std::string tableName,
         std::string primaryKeyName)
         : dbName{std::move(dbName)}, tableName{std::move(tableName)},
           primaryKeyName{std::move(primaryKeyName)} {}
 };
 
-struct ExtraCreateExternalRelTableInfo : public ExtraCreateTableInfo {
+struct ExtraCreateRelTableReferenceInfo : public ExtraCreateTableReferenceInfo {
     std::string srcTableName;
     std::string dstTableName;
-    std::string fromColumnName;
-    std::string toColumnName;
-    std::string primaryKeyName;
 
-    ExtraCreateExternalRelTableInfo(std::string srcTableName, std::string dstTableName,
-        std::string fromColumnName, std::string toColumnName, std::string primaryKeyName)
-        : srcTableName{std::move(srcTableName)}, dstTableName{std::move(dstTableName)},
-          fromColumnName{std::move(fromColumnName)}, toColumnName{std::move(toColumnName)},
-          primaryKeyName{std::move(primaryKeyName)} {}
+    ExtraCreateRelTableReferenceInfo(std::string srcTableName, std::string dstTableName,
+        std::string externalDBName, std::string externalTableName, std::string primaryKeyName)
+        : ExtraCreateTableReferenceInfo(std::move(externalDBName), std::move(externalTableName),
+              std::move(primaryKeyName)), srcTableName{std::move(srcTableName)},
+          dstTableName{std::move(dstTableName)} {}
 };
 
 struct ExtraCreateRelTableInfo : public ExtraCreateTableInfo {

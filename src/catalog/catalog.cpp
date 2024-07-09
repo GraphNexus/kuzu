@@ -11,6 +11,7 @@
 #include "catalog/catalog_entry/rdf_graph_catalog_entry.h"
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "catalog/catalog_entry/rel_table_catalog_entry.h"
+#include "catalog/catalog_entry/rel_table_reference_catalog_entry.h"
 #include "catalog/catalog_entry/scalar_macro_catalog_entry.h"
 #include "catalog/catalog_entry/sequence_catalog_entry.h"
 #include "catalog/catalog_entry/type_catalog_entry.h"
@@ -514,8 +515,8 @@ void Catalog::alterRdfChildTableEntries(Transaction* transaction, CatalogEntry* 
 }
 
 
-std::unique_ptr<CatalogEntry> Catalog::createNodeTableEntry(Transaction*,
-    table_id_t tableID, const BoundCreateTableInfo& info) const {
+std::unique_ptr<CatalogEntry> Catalog::createNodeTableEntry(Transaction*, table_id_t tableID,
+    const BoundCreateTableInfo& info) const {
     auto extraInfo = info.extraInfo->constPtrCast<BoundExtraCreateNodeTableInfo>();
     auto nodeTableEntry = std::make_unique<NodeTableCatalogEntry>(tables.get(), info.tableName,
         tableID, extraInfo->primaryKeyIdx);
@@ -526,26 +527,9 @@ std::unique_ptr<CatalogEntry> Catalog::createNodeTableEntry(Transaction*,
     return nodeTableEntry;
 }
 
-std::unique_ptr<CatalogEntry> Catalog::createNodeTableReferenceEntry(Transaction* transaction,
-    common::table_id_t tableID, const binder::BoundCreateTableInfo& info) {
-    auto extraInfo = info.extraInfo->constPtrCast<BoundExtraCreateNodeTableReferenceInfo>();
-    auto physicalTableID = tables->assignNextOID();
-    auto physicalEntry = createNodeTableEntry(transaction, physicalTableID, extraInfo->physicalInfo);
-    auto entry = std::make_unique<NodeTableReferenceCatalogEntry>(tables.get(), info.tableName,
-        tableID, extraInfo->primaryKeyIdx, extraInfo->externalDBName, extraInfo->externalTableName,
-        std::move(physicalEntry));
-    for (auto& propertyInfo : extraInfo->propertyInfos) {
-        entry->addProperty(propertyInfo.name, propertyInfo.type.copy(),
-            propertyInfo.defaultValue->copy());
-    }
-    return entry;
-}
-
-std::unique_ptr<CatalogEntry> Catalog::createRelTableEntry(transaction::Transaction*,
-    common::table_id_t tableID, const binder::BoundCreateTableInfo& info) const {
-    auto extraInfo =
-        ku_dynamic_cast<BoundExtraCreateCatalogEntryInfo*, BoundExtraCreateRelTableInfo*>(
-            info.extraInfo.get());
+std::unique_ptr<CatalogEntry> Catalog::createRelTableEntry(Transaction*, table_id_t tableID,
+    const BoundCreateTableInfo& info) const {
+    auto extraInfo = info.extraInfo->constPtrCast<BoundExtraCreateRelTableInfo>();
     auto relTableEntry = std::make_unique<RelTableCatalogEntry>(tables.get(), info.tableName,
         tableID, extraInfo->srcMultiplicity, extraInfo->dstMultiplicity, extraInfo->srcTableID,
         extraInfo->dstTableID);
@@ -554,6 +538,30 @@ std::unique_ptr<CatalogEntry> Catalog::createRelTableEntry(transaction::Transact
             propertyInfo.defaultValue->copy());
     }
     return relTableEntry;
+}
+
+std::unique_ptr<CatalogEntry> Catalog::createNodeTableReferenceEntry(Transaction* transaction,
+    table_id_t tableID, const BoundCreateTableInfo& info) const {
+    auto extraInfo = info.extraInfo->constPtrCast<BoundExtraCreateTableReferenceInfo>();
+    auto physicalTableID = tables->assignNextOID();
+    auto physicalEntry = createNodeTableEntry(transaction, physicalTableID, extraInfo->physicalInfo);
+    auto entry = std::make_unique<NodeTableReferenceCatalogEntry>(tables.get(), info.tableName,
+        tableID, extraInfo->externalDBName, extraInfo->externalTableName,
+        std::move(physicalEntry), extraInfo->primaryKeyIdx);
+    for (auto& propertyInfo : extraInfo->propertyInfos) {
+        entry->addProperty(propertyInfo.name, propertyInfo.type.copy(),
+            propertyInfo.defaultValue->copy());
+    }
+    return entry;
+}
+
+
+std::unique_ptr<CatalogEntry> Catalog::createRelTableReferenceEntry(transaction::Transaction* transaction, common::table_id_t tableID, const binder::BoundCreateTableInfo& info) const {
+    auto extraInfo = info.extraInfo->constPtrCast<BoundExtraCreateRelTableReferenceInfo>();
+    auto physicalTableID = tables->assignNextOID();
+    auto physicalEntry = createRelTableEntry(transaction, physicalTableID, extraInfo->physicalInfo);
+    auto entry = std::make_unique<RelTableReferenceCatalogEntry>(tables.get(), info.tableName,
+        tableID, extraInfo->externalDBName, extraInfo->externalTableName, std::move(physicalEntry))
 }
 
 std::unique_ptr<CatalogEntry> Catalog::createRelTableGroupEntry(Transaction* transaction,

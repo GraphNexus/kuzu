@@ -14,6 +14,7 @@ enum class CatalogEntryType : uint8_t {
     RDF_GRAPH_ENTRY = 3,
     FOREIGN_TABLE_ENTRY = 4,
     NODE_TABLE_REFERENCE_ENTRY = 5,
+    REL_TABLE_REFERENCE_ENTRY = 6,
 
     // Macro entries
     SCALAR_MACRO_ENTRY = 10,

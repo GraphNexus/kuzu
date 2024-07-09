@@ -7,6 +7,10 @@
 namespace kuzu {
 namespace planner {
 
+struct LogicalRelTableScanInfo {
+    common::table_id_t tableID;
+};
+
 class BaseLogicalExtend : public LogicalOperator {
 public:
     BaseLogicalExtend(LogicalOperatorType operatorType,
@@ -36,6 +40,8 @@ protected:
     // End node of extension.
     std::shared_ptr<binder::NodeExpression> nbrNode;
     std::shared_ptr<binder::RelExpression> rel;
+
+
     common::ExtendDirection direction;
     // Ideally we should check this by *boundNode == *rel->getSrcNode()
     // This is currently not doable due to recursive plan not setting src node correctly.

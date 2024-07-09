@@ -1,11 +1,6 @@
 #include "binder/expression/node_rel_expression.h"
 
-#include "catalog/catalog.h"
-#include "catalog/catalog_entry/node_table_catalog_entry.h"
-
 using namespace kuzu::common;
-using namespace kuzu::catalog;
-using namespace kuzu::transaction;
 
 namespace kuzu {
 namespace binder {

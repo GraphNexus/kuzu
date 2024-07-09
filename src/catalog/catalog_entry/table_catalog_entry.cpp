@@ -7,6 +7,7 @@
 #include "catalog/catalog_entry/rdf_graph_catalog_entry.h"
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "catalog/catalog_entry/rel_table_catalog_entry.h"
+#include "catalog/catalog_entry/reference_catalog_entry.h"
 
 using namespace kuzu::binder;
 using namespace kuzu::common;
@@ -125,12 +126,16 @@ std::unique_ptr<TableCatalogEntry> TableCatalogEntry::deserialize(
     deserializer.deserializeValue(nextColumnID);
     std::unique_ptr<TableCatalogEntry> result;
     switch (type) {
-    case CatalogEntryType::NODE_TABLE_ENTRY:
+    case CatalogEntryType::NODE_TABLE_ENTRY: {
         result = NodeTableCatalogEntry::deserialize(deserializer);
-        break;
-    case CatalogEntryType::REL_TABLE_ENTRY:
+    } break;
+    case CatalogEntryType::REL_TABLE_ENTRY: {
         result = RelTableCatalogEntry::deserialize(deserializer);
-        break;
+    } break;
+    case CatalogEntryType::NODE_TABLE_REFERENCE_ENTRY:
+    case CatalogEntryType::REL_TABLE_REFERENCE_ENTRY: {
+        result = TableReferenceCatalogEntry::deserialize(deserializer, type);
+    } break ;
     case CatalogEntryType::REL_GROUP_ENTRY:
         result = RelGroupCatalogEntry::deserialize(deserializer);
         break;
@@ -148,7 +153,6 @@ std::unique_ptr<TableCatalogEntry> TableCatalogEntry::deserialize(
     return result;
 }
 
-// TODO: FIXME
 void TableCatalogEntry::copyFrom(const CatalogEntry& other) {
     CatalogEntry::copyFrom(other);
     auto& otherTable = ku_dynamic_cast<const CatalogEntry&, const TableCatalogEntry&>(other);

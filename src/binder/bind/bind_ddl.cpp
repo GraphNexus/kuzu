@@ -8,6 +8,7 @@
 #include "binder/expression/expression_util.h"
 #include "catalog/catalog.h"
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
+#include "catalog/catalog_entry/node_table_reference_catalog_entry.h"
 #include "catalog/catalog_entry/rdf_graph_catalog_entry.h"
 #include "catalog/catalog_entry/rel_group_catalog_entry.h"
 #include "catalog/catalog_entry/rel_table_catalog_entry.h"
@@ -17,7 +18,6 @@
 #include "common/types/types.h"
 #include "function/cast/functions/cast_from_string_functions.h"
 #include "function/sequence/sequence_functions.h"
-#include "main/client_context.h"
 #include "parser/ddl/alter.h"
 #include "parser/ddl/create_sequence.h"
 #include "parser/ddl/create_table.h"
@@ -185,8 +185,12 @@ BoundCreateTableInfo Binder::bindCreateRelTableInfo(const CreateTableInfo& info)
         std::move(boundExtraInfo));
 }
 
-BoundCreateTableInfo Binder::bindCreateNodeTableReferenceInfo(const parser::CreateTableInfo& info) {
-    auto& extraInfo = info.extraInfo->constCast<ExtraCreateExternalNodeTableInfo>();
+static std::string getPhysicalTableName(std::string name) {
+    return "_" + name;
+}
+
+BoundCreateTableInfo Binder::bindCreateNodeTableReferenceInfo(const CreateTableInfo& info) {
+    auto& extraInfo = info.extraInfo->constCast<ExtraCreateTableReferenceInfo>();
     auto entry = bindExternalTableEntry(extraInfo.dbName, extraInfo.tableName)->ptrCast<TableCatalogEntry>();
     auto propertyInfos = bindPropertyInfo(*entry);
     auto primaryKeyIdx = bindPrimaryKey(extraInfo.primaryKeyName, propertyInfos);
@@ -196,16 +200,30 @@ BoundCreateTableInfo Binder::bindCreateNodeTableReferenceInfo(const parser::Crea
     auto physicalPrimaryKeyIdx = 0;
     auto boundPhysicalExtraInfo = std::make_unique<BoundExtraCreateNodeTableInfo>(
         physicalPrimaryKeyIdx, std::move(physicalPropertyInfos));
-    auto physicalTableName = "_" + info.tableName;
-    auto boundPhysicalCreateInfo = BoundCreateTableInfo(TableType::NODE, physicalTableName,
+    auto boundPhysicalCreateInfo = BoundCreateTableInfo(TableType::NODE, getPhysicalTableName(info.tableName),
         ConflictAction::ON_CONFLICT_THROW, std::move(boundPhysicalExtraInfo));
     // Bind create external node table info
-    auto boundExtraInfo = std::make_unique<BoundExtraCreateNodeTableReferenceInfo>(
+    auto boundExtraInfo = std::make_unique<BoundExtraCreateTableReferenceInfo>(
         std::move(propertyInfos), primaryKeyIdx, extraInfo.dbName, extraInfo.tableName, std::move(boundPhysicalCreateInfo));
     return BoundCreateTableInfo(TableType::NODE_REFERENCE, info.tableName, info.onConflict, std::move(boundExtraInfo));
 }
 
-BoundCreateTableInfo Binder::bindCreateExternalRelTableInfo(const parser::CreateTableInfo& info) {
+BoundCreateTableInfo Binder::bindCreateExternalRelTableInfo(const CreateTableInfo& info) {
+    auto catalog = clientContext->getCatalog();
+    auto transaction = clientContext->getTx();
+    auto& extraInfo = info.extraInfo->constCast<ExtraCreateRelTableReferenceInfo>();
+    auto entry = bindExternalTableEntry(extraInfo.dbName, extraInfo.tableName)->ptrCast<TableCatalogEntry>();
+    std::vector<PropertyInfo> propertyInfos;
+    propertyInfos.emplace_back(InternalKeyword::ID, LogicalType::INTERNAL_ID());
+    // Bind physical create rel table info
+    // TODO: should be refer to the actual
+    auto srcRefTableID = bindTableID(extraInfo.srcTableName);
+    auto srcRefEntry = catalog->getTableCatalogEntry(transaction, srcRefTableID)->ptrCast<RelTableReferenceCatalogEntry>();
+    auto dstTableID = bindTableID(extraInfo.dstTableName);
+    auto boundPhysicalExtraInfo = std::make_unique<BoundExtraCreateRelTableInfo>(RelMultiplicity::MANY,
+        RelMultiplicity::MANY, srcTableID, dstTableID, copyVector(propertyInfos));
+    auto physicalTable
+
 //    auto& extraInfo = info.extraInfo->constCast<ExtraCreateExternalRelTableInfo>();
 //    auto srcDBName = extraInfo.srcTableInfo.dbName;
 //    auto srcTableName = extraInfo.srcTableInfo.tableName;
@@ -230,7 +248,7 @@ BoundCreateTableInfo Binder::bindCreateExternalRelTableInfo(const parser::Create
 //    std::vector<PropertyInfo> propertyInfos;
 //    propertyInfos.emplace_back(InternalKeyword::ID, LogicalType::INTERNAL_ID());
 //    auto boundExtraInfo = std::make_unique<BoundExtraCreateRelTableInfo>(RelMultiplicity::MANY, RelMultiplicity::MANY, internalSrcTableID, internalDstTableID, std::move(propertyInfos));
-    return BoundCreateTableInfo(TableType::REL, info.tableName, info.onConflict, nullptr);
+//    return BoundCreateTableInfo(TableType::REL, info.tableName, info.onConflict, nullptr);
 }
 
 BoundCreateTableInfo Binder::bindCreateRelTableGroupInfo(const CreateTableInfo& info) {
