@@ -19,7 +19,7 @@ struct ParallelUtilsJob {
     std::unique_ptr<GDSLocalState> gdsLocalState;
     GDSCallSharedState* gdsCallSharedState;
     gds_algofunc_t gdsAlgoFunc;
-    bool isParallel;
+    uint64_t maxTaskThreads;
 };
 
 class ParallelUtils {

@@ -250,7 +250,7 @@ public:
             auto gdsLocalState = std::make_unique<ParallelShortestPathLocalState>();
             gdsLocalState->ifeMorsel = ifeMorsel.get();
             auto job = ParallelUtilsJob{executionContext, std::move(gdsLocalState), sharedState,
-                mainFunc, false /* isParallel */};
+                mainFunc, 1u /* maxTaskThreads */};
             auto scheduledTask = parallelUtils->submitTaskAndReturn(job);
             // printf("submitted job for bfs source: %lu\n", ifeMorsel->srcOffset);
             ifeMorselTasks.push_back({std::move(ifeMorsel), scheduledTask});
@@ -305,7 +305,7 @@ public:
                 auto gdsLocalState = std::make_unique<ParallelShortestPathLocalState>();
                 gdsLocalState->ifeMorsel = ifeMorselTasks[i].first.get();
                 auto job = ParallelUtilsJob{executionContext, std::move(gdsLocalState), sharedState,
-                    mainFunc, false /* isParallel */};
+                    mainFunc, 1u /* maxTaskThreads */};
                 ifeMorselTasks[i].second = parallelUtils->submitTaskAndReturn(job);
             }
             std::this_thread::sleep_for(

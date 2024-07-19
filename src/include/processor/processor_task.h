@@ -17,6 +17,10 @@ public:
 
     inline void setSharedStateInitialized() { sharedStateInitialized = true; }
 
+    inline void setNumberOfTaskThreads(uint64_t threads) {
+        maxNumThreads = threads;
+    }
+
     /*
      * This needs to be done carefully since the sink operator is backed by a unique_ptr and the
      * task is a shared_ptr, meaning the *sink* may get freed before the task. Hence, check the

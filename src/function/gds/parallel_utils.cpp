@@ -19,6 +19,7 @@ void ParallelUtils::submitParallelTaskAndWait(ParallelUtilsJob& job) {
     auto parallelUtilsOp = std::make_unique<ParallelUtilsOperator>(std::move(job.gdsLocalState),
         job.gdsAlgoFunc, job.gdsCallSharedState, operatorID, std::move(printInfo));
     auto task = std::make_shared<ProcessorTask>(parallelUtilsOp.get(), job.executionContext);
+    task->setNumberOfTaskThreads(job.maxTaskThreads);
     task->setSharedStateInitialized();
     taskScheduler->scheduleTaskAndWaitOrError(task, job.executionContext);
 }
@@ -28,9 +29,7 @@ std::shared_ptr<ScheduledTask> ParallelUtils::submitTaskAndReturn(ParallelUtilsJ
     auto parallelUtilsOp = new ParallelUtilsOperator(std::move(job.gdsLocalState), job.gdsAlgoFunc,
         job.gdsCallSharedState, operatorID, std::move(printInfo));
     auto task = std::make_shared<ProcessorTask>(parallelUtilsOp, job.executionContext);
-    if (!job.isParallel) {
-        task->setSingleThreadedTask();
-    }
+    task->setNumberOfTaskThreads(job.maxTaskThreads);
     task->setSharedStateInitialized();
     return taskScheduler->scheduleTaskAndReturn(task);
 }
@@ -43,9 +42,7 @@ std::vector<std::shared_ptr<ScheduledTask>> ParallelUtils::submitTasksAndReturn(
         auto parallelUtilsOp = new ParallelUtilsOperator(std::move(job.gdsLocalState),
             job.gdsAlgoFunc, job.gdsCallSharedState, operatorID, std::move(printInfo));
         auto task = std::make_shared<ProcessorTask>(parallelUtilsOp, job.executionContext);
-        if (!job.isParallel) {
-            task->setSingleThreadedTask();
-        }
+        task->setNumberOfTaskThreads(job.maxTaskThreads);
         task->setSharedStateInitialized();
         tasks.push_back(task);
     }
