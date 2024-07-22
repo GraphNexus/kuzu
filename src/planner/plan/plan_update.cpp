@@ -64,22 +64,16 @@ void Planner::planMergeClause(const BoundUpdatingClause* updatingClause, Logical
     if (mergeClause->hasPredicate()) {
         predicates = mergeClause->getPredicate()->splitOnAND();
     }
-    std::shared_ptr<Expression> distinctMark = nullptr;
     expression_vector corrExprs;
     if (!plan.isEmpty()) {
-        distinctMark = mergeClause->getDistinctMark();
         corrExprs = getCorrelatedExprs(*mergeClause->getQueryGraphCollection(), predicates,
             plan.getSchema());
-        if (corrExprs.size() == 0) {
-            throw RuntimeException{"Empty key in merge clause is not supported yet."};
-        }
-        appendMarkAccumulate(corrExprs, distinctMark, plan);
     }
     auto existenceMark = mergeClause->getExistenceMark();
     planOptionalMatch(*mergeClause->getQueryGraphCollection(), predicates, corrExprs, existenceMark,
         plan);
     auto merge =
-        std::make_shared<LogicalMerge>(existenceMark, distinctMark, plan.getLastOperator());
+        std::make_shared<LogicalMerge>(existenceMark, std::move(corrExprs), plan.getLastOperator());
     if (mergeClause->hasInsertNodeInfo()) {
         for (auto& info : mergeClause->getInsertNodeInfos()) {
             merge->addInsertNodeInfo(createLogicalInsertInfo(info)->copy());

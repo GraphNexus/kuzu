@@ -19,9 +19,6 @@ std::string MergePrintInfo::toString() const {
 
 void Merge::initLocalStateInternal(ResultSet* /*resultSet_*/, ExecutionContext* context) {
     existenceVector = resultSet->getValueVector(existenceMark).get();
-    if (distinctMark.isValid()) {
-        distinctVector = resultSet->getValueVector(distinctMark).get();
-    }
     for (auto& executor : nodeInsertExecutors) {
         executor.init(resultSet, context);
     }
@@ -40,11 +37,15 @@ void Merge::initLocalStateInternal(ResultSet* /*resultSet_*/, ExecutionContext* 
     for (auto& executor : onMatchRelSetExecutors) {
         executor->init(resultSet, context);
     }
+    localState.init(*resultSet, context->clientContext, info);
 }
 
 bool Merge::getNextTuplesInternal(ExecutionContext* context) {
     if (!children[0]->getNextTuple(context)) {
         return false;
+    }
+    if (!localState.keyVectors.empty()) {
+        localState.append(resultSet->multiplicity);
     }
     KU_ASSERT(existenceVector->state->getSelVector().getSelSize() == 1);
     auto pos = existenceVector->state->getSelVector()[0];
@@ -58,10 +59,14 @@ bool Merge::getNextTuplesInternal(ExecutionContext* context) {
         }
     } else {
         auto patternHasBeenCreated = false;
-        if (distinctVector != nullptr) {
-            KU_ASSERT(distinctVector->state->getSelVector().getSelSize() == 1);
-            auto distinctPos = distinctVector->state->getSelVector()[0];
-            patternHasBeenCreated = !distinctVector->getValue<bool>(distinctPos);
+        auto ft = localState.hashTable->getFactorizedTable();
+        if (!localState.keyVectors.empty()) {
+            patternHasBeenCreated = !*(bool*)(ft->getTuple(ft->getNumTuples() - 1) +
+                                              ft->getTableSchema()->getColOffset(
+                                                  ft->getTableSchema()->getNumColumns() - 2));
+        } else {
+            patternHasBeenCreated = hasInserted;
+            hasInserted = true;
         }
         if (patternHasBeenCreated) {
             for (auto& executor : nodeInsertExecutors) {
@@ -96,11 +101,12 @@ bool Merge::getNextTuplesInternal(ExecutionContext* context) {
 }
 
 std::unique_ptr<PhysicalOperator> Merge::clone() {
-    return std::make_unique<Merge>(existenceMark, distinctMark, copyVector(nodeInsertExecutors),
+    return std::make_unique<Merge>(existenceMark, copyVector(nodeInsertExecutors),
         copyVector(relInsertExecutors), NodeSetExecutor::copy(onCreateNodeSetExecutors),
         RelSetExecutor::copy(onCreateRelSetExecutors),
         NodeSetExecutor::copy(onMatchNodeSetExecutors),
-        RelSetExecutor::copy(onMatchRelSetExecutors), children[0]->clone(), id, printInfo->copy());
+        RelSetExecutor::copy(onMatchRelSetExecutors), info, children[0]->clone(), id,
+        printInfo->copy());
 }
 
 } // namespace processor

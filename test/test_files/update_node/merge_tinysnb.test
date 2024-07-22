@@ -79,9 +79,9 @@ Runtime exception: Found duplicated primary key value 1, which violates the uniq
 1
 2
 3
--STATEMENT MATCH (a:person) with a.ID as id MERGE (u:user {ID: 10}) RETURN u.ID, id
----- error
-Runtime exception: Empty key in merge clause is not supported yet.
+#-STATEMENT MATCH (a:person) with a.ID as id MERGE (u:user {ID: 10}) RETURN u.ID, id
+#---- error
+#Runtime exception: Empty key in merge clause is not supported yet.
 -STATEMENT CREATE NODE TABLE user1 (ID int64, name string, primary key(ID))
 ---- ok
 -STATEMENT MATCH (a:person) with a.ID % 7 as result, a.fName as name MERGE (u:user1 {ID: result}) ON MATCH SET u.name = 'match: ' + name ON CREATE SET u.name = 'create: ' + name RETURN u.ID, u.name
