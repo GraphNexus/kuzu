@@ -83,7 +83,6 @@ private:
     std::unique_ptr<PhysicalOperator> mapIntersect(planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapInsert(planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapLimit(planner::LogicalOperator* logicalOperator);
-    std::unique_ptr<PhysicalOperator> mapMarkAccumulate(planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapMerge(planner::LogicalOperator* logicalOperator);
     std::unique_ptr<PhysicalOperator> mapMultiplicityReducer(
         planner::LogicalOperator* logicalOperator);
@@ -168,14 +167,10 @@ private:
         const binder::expression_vector& keys, const binder::expression_vector& payloads,
         planner::Schema* inSchema, planner::Schema* outSchema,
         std::unique_ptr<PhysicalOperator> prevOperator);
-    std::unique_ptr<PhysicalOperator> createMarkDistinctHashAggregate(
-        const binder::expression_vector& keys, const binder::expression_vector& payloads,
-        std::shared_ptr<binder::Expression> mark, planner::Schema* inSchema,
-        planner::Schema* outSchema, std::unique_ptr<PhysicalOperator> prevOperator);
     std::unique_ptr<PhysicalOperator> createHashAggregate(const binder::expression_vector& keys,
         const binder::expression_vector& payloads, const binder::expression_vector& aggregates,
-        std::shared_ptr<binder::Expression> mark, planner::Schema* inSchema,
-        planner::Schema* outSchema, std::unique_ptr<PhysicalOperator> prevOperator);
+        planner::Schema* inSchema, planner::Schema* outSchema,
+        std::unique_ptr<PhysicalOperator> prevOperator);
 
     std::unique_ptr<NodeInsertExecutor> getNodeInsertExecutor(
         const planner::LogicalInsertInfo* info, const planner::Schema& inSchema,

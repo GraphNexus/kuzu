@@ -99,12 +99,11 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapMerge(planner::LogicalOperator*
         getFactorizedTableSchema(logicalMerge.getKeys(),
             logicalMerge.getOnMatchSetNodeInfos().size(),
             logicalMerge.getOnMatchSetRelInfos().size()),
-        std::move(executorInfo)};
-    return std::make_unique<Merge>(existenceMarkPos, std::move(nodeInsertExecutors),
-        std::move(relInsertExecutors), std::move(onCreateNodeSetExecutors),
-        std::move(onCreateRelSetExecutors), std::move(onMatchNodeSetExecutors),
-        std::move(onMatchRelSetExecutors), std::move(mergeInfo), std::move(prevOperator),
-        getOperatorID(), std::move(printInfo));
+        std::move(executorInfo), existenceMarkPos};
+    return std::make_unique<Merge>(std::move(nodeInsertExecutors), std::move(relInsertExecutors),
+        std::move(onCreateNodeSetExecutors), std::move(onCreateRelSetExecutors),
+        std::move(onMatchNodeSetExecutors), std::move(onMatchRelSetExecutors), std::move(mergeInfo),
+        std::move(prevOperator), getOperatorID(), std::move(printInfo));
 }
 
 } // namespace processor

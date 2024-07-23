@@ -84,13 +84,3 @@ TEST_F(CApiDatabaseTest, CreationHomeDir) {
     kuzu_database_destroy(&database);
     std::filesystem::remove_all(homePath + "/ku_test.db");
 }
-
-TEST_F(CApiDatabaseTest, CreationHomeDir1) {
-    createDBAndConn();
-    conn->query("create node table person (id int64, primary key(id));");
-    conn->query("create node table person1 (id int64, primary key(id));");
-    conn->query("create (p:person {id: 13})");
-    printf("%s", conn->query("unwind [1,2,2,1,5] as x merge (a:person {id: x}), (b:person1 {id: x}) on match set a.id = x+1, b.id = x + 10;")->toString().c_str());
-    printf("%s", conn->query("match (x:person1) return x.*;")->toString().c_str());
-    printf("%s", conn->query("match (x:person) return x.*;")->toString().c_str());
-}

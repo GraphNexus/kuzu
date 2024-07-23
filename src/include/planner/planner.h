@@ -287,8 +287,6 @@ public:
     void appendAccumulate(common::AccumulateType accumulateType,
         const binder::expression_vector& flatExprs, std::shared_ptr<binder::Expression> offset,
         std::shared_ptr<binder::Expression> mark, LogicalPlan& plan);
-    void appendMarkAccumulate(const binder::expression_vector& keys,
-        std::shared_ptr<binder::Expression> mark, LogicalPlan& plan);
 
     void appendDummyScan(LogicalPlan& plan);
 

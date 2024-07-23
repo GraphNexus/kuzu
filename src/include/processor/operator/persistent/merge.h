@@ -13,13 +13,16 @@ struct MergeInfo {
     std::vector<DataPos> keyPoses;
     FactorizedTableSchema tableSchema;
     common::executor_info executorInfo;
+    DataPos existenceMark;
 
     MergeInfo(std::vector<DataPos> keyPoses, FactorizedTableSchema tableSchema,
-        common::executor_info executorInfo)
+        common::executor_info executorInfo, DataPos existenceMark)
         : keyPoses{std::move(keyPoses)}, tableSchema{std::move(tableSchema)},
-          executorInfo{std::move(executorInfo)} {}
+          executorInfo{std::move(executorInfo)}, existenceMark{std::move(existenceMark)} {}
 
-    MergeInfo copy() { return MergeInfo{keyPoses, tableSchema.copy(), executorInfo}; }
+    MergeInfo copy() const {
+        return MergeInfo{keyPoses, tableSchema.copy(), executorInfo, existenceMark};
+    }
 };
 
 struct MergePrintInfo final : OPPrintInfo {
@@ -45,31 +48,23 @@ private:
 
 struct MergeLocalState {
     std::vector<common::ValueVector*> keyVectors;
-    std::vector<common::ValueVector*> unflatKeys;
-    std::vector<common::ValueVector*> dependentKeys;
-    common::DataChunkState* state;
     std::unique_ptr<PatternCreationInfoTable> hashTable;
+    common::ValueVector* existenceVector;
 
-    void init(ResultSet& resultSet, main::ClientContext* context, MergeInfo& info) {
-        std::vector<common::LogicalType> types;
-        for (auto& keyPos : info.keyPoses) {
-            auto keyVector = resultSet.getValueVector(keyPos).get();
-            types.push_back(keyVector->dataType.copy());
-            keyVectors.push_back(keyVector);
-            state = keyVector->state.get();
-        }
-        hashTable = std::make_unique<PatternCreationInfoTable>(*context->getMemoryManager(),
-            std::move(types), std::vector<common::LogicalType>{}, 0, std::move(info.tableSchema));
+    void init(ResultSet& resultSet, main::ClientContext* context, MergeInfo& info);
+
+    bool patternExists();
+
+    PatternCreationInfo getPatternCreationInfo() const {
+        return hashTable->getPatternCreationInfo(keyVectors);
     }
-
-    PatternCreationInfo append() const { return hashTable->append(keyVectors); }
 };
 
 class Merge : public PhysicalOperator {
     static constexpr PhysicalOperatorType type_ = PhysicalOperatorType::MERGE;
 
 public:
-    Merge(const DataPos& existenceMark, std::vector<NodeInsertExecutor> nodeInsertExecutors,
+    Merge(std::vector<NodeInsertExecutor> nodeInsertExecutors,
         std::vector<RelInsertExecutor> relInsertExecutors,
         std::vector<std::unique_ptr<NodeSetExecutor>> onCreateNodeSetExecutors,
         std::vector<std::unique_ptr<RelSetExecutor>> onCreateRelSetExecutors,
@@ -78,7 +73,7 @@ public:
         std::unique_ptr<PhysicalOperator> child, uint32_t id,
         std::unique_ptr<OPPrintInfo> printInfo)
         : PhysicalOperator{type_, std::move(child), id, std::move(printInfo)},
-          existenceMark{existenceMark}, nodeInsertExecutors{std::move(nodeInsertExecutors)},
+          nodeInsertExecutors{std::move(nodeInsertExecutors)},
           relInsertExecutors{std::move(relInsertExecutors)},
           onCreateNodeSetExecutors{std::move(onCreateNodeSetExecutors)},
           onCreateRelSetExecutors{std::move(onCreateRelSetExecutors)},
@@ -96,14 +91,13 @@ public:
 private:
     void executeOnMatch(ExecutionContext* context);
 
-    bool hasPatternBeenCreated(PatternCreationInfo& insertedIDInfo);
+    void executeOnCreatedPattern(PatternCreationInfo& info, ExecutionContext* context);
+
+    void executeOnNewPattern(PatternCreationInfo& info, ExecutionContext* context);
 
     void executeNoMatch(ExecutionContext* context);
 
 private:
-    DataPos existenceMark;
-    common::ValueVector* existenceVector = nullptr;
-
     std::vector<NodeInsertExecutor> nodeInsertExecutors;
     std::vector<RelInsertExecutor> relInsertExecutors;
 
@@ -115,7 +109,6 @@ private:
 
     MergeInfo info;
     MergeLocalState localState;
-    bool hasInserted = false;
 };
 
 } // namespace processor
