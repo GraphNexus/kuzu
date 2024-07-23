@@ -93,7 +93,7 @@ protected:
         const std::vector<common::ValueVector*>& unFlatKeyVectors, uint64_t numMayMatches,
         uint64_t numNoMatches);
 
-    virtual void initializeFTEntries(const std::vector<common::ValueVector*>& flatKeyVectors,
+    void initializeFTEntries(const std::vector<common::ValueVector*>& flatKeyVectors,
         const std::vector<common::ValueVector*>& unFlatKeyVectors,
         const std::vector<common::ValueVector*>& dependentKeyVectors,
         uint64_t numFTEntriesToInitialize);
@@ -104,7 +104,14 @@ protected:
     uint64_t matchFlatVecWithFTColumn(common::ValueVector* vector, uint64_t numMayMatches,
         uint64_t& numNoMatches, uint32_t colIdx);
 
-public:
+    void resizeHashTableIfNecessary(uint32_t maxNumDistinctHashKeys);
+
+    void findHashSlots(const std::vector<common::ValueVector*>& flatKeyVectors,
+        const std::vector<common::ValueVector*>& unFlatKeyVectors,
+        const std::vector<common::ValueVector*>& dependentKeyVectors,
+        common::DataChunkState* leadingState);
+
+private:
     void initializeFT(
         const std::vector<std::unique_ptr<function::AggregateFunction>>& aggregateFunctions,
         FactorizedTableSchema tableSchema);
@@ -132,11 +139,6 @@ public:
     void initTmpHashSlotsAndIdxes();
 
     void increaseHashSlotIdxes(uint64_t numNoMatches);
-
-    void findHashSlots(const std::vector<common::ValueVector*>& flatKeyVectors,
-        const std::vector<common::ValueVector*>& unFlatKeyVectors,
-        const std::vector<common::ValueVector*>& dependentKeyVectors,
-        common::DataChunkState* leadingState);
 
     void updateDistinctAggState(const std::vector<common::ValueVector*>& flatKeyVectors,
         const std::vector<common::ValueVector*>& unFlatKeyVectors,
@@ -170,8 +172,6 @@ public:
     }
 
     void addDataBlocksIfNecessary(uint64_t maxNumHashSlots);
-
-    void resizeHashTableIfNecessary(uint32_t maxNumDistinctHashKeys);
 
     void updateNullAggVectorState(const std::vector<common::ValueVector*>& flatKeyVectors,
         const std::vector<common::ValueVector*>& unFlatKeyVectors,

@@ -51,7 +51,7 @@ void MergeLocalState::init(ResultSet& resultSet, main::ClientContext* context, M
     existenceVector = resultSet.getValueVector(info.existenceMark).get();
 }
 
-bool MergeLocalState::patternExists() {
+bool MergeLocalState::patternExists() const {
     KU_ASSERT(existenceVector->state->getSelVector().getSelSize() == 1);
     auto pos = existenceVector->state->getSelVector()[0];
     return existenceVector->getValue<bool>(pos);

@@ -2,7 +2,6 @@
 
 #include "binder/expression/expression_util.h"
 #include "common/utils.h"
-#include "processor/result/mark_hash_table.h"
 
 using namespace kuzu::common;
 using namespace kuzu::function;

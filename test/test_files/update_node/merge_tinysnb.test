@@ -79,6 +79,7 @@ Runtime exception: Found duplicated primary key value 1, which violates the uniq
 1
 2
 3
+# TODO(Xiyang): append cross product in such case
 #-STATEMENT MATCH (a:person) with a.ID as id MERGE (u:user {ID: 10}) RETURN u.ID, id
 #---- error
 #Runtime exception: Empty key in merge clause is not supported yet.

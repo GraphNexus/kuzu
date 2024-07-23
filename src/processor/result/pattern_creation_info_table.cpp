@@ -1,4 +1,4 @@
-#include "processor/result/mark_hash_table.h"
+#include "processor/result/pattern_creation_info_table.h"
 
 namespace kuzu {
 namespace processor {
@@ -37,7 +37,7 @@ PatternCreationInfo PatternCreationInfoTable::getPatternCreationInfo(
         computeVectorHashes(keyVectors, std::vector<common::ValueVector*>{});
         findHashSlots(keyVectors, std::vector<common::ValueVector*>{},
             std::vector<common::ValueVector*>{}, keyVectors[0]->state.get());
-        hasCreated = !(tuple == nullptr);
+        hasCreated = tuple != nullptr;
         auto idTuple = tuple == nullptr ?
                            factorizedTable->getTuple(factorizedTable->getNumTuples() - 1) :
                            tuple;

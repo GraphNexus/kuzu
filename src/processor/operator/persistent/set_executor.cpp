@@ -133,10 +133,6 @@ void SingleLabelRelSetExecutor::set(ExecutionContext* context) {
         return;
     }
     evaluator->evaluate();
-    auto rhsValue = rhsVector->getValue<int64_t>(rhsVector->state->getSelVector()[0]);
-    auto relIDValue = relIDVector->getValue<relID_t>(relIDVector->state->getSelVector()[0]);
-    auto srcValue = srcNodeIDVector->getValue<nodeID_t>(srcNodeIDVector->state->getSelVector()[0]);
-    auto dstValue = dstNodeIDVector->getValue<nodeID_t>(dstNodeIDVector->state->getSelVector()[0]);
     auto updateState = std::make_unique<storage::RelTableUpdateState>(columnID, *srcNodeIDVector,
         *dstNodeIDVector, *relIDVector, *rhsVector);
     table->update(context->clientContext->getTx(), *updateState);

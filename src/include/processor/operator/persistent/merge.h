@@ -3,7 +3,7 @@
 #include "insert_executor.h"
 #include "processor/operator/aggregate/hash_aggregate.h"
 #include "processor/operator/physical_operator.h"
-#include "processor/result/mark_hash_table.h"
+#include "processor/result/pattern_creation_info_table.h"
 #include "set_executor.h"
 
 namespace kuzu {
@@ -53,7 +53,7 @@ struct MergeLocalState {
 
     void init(ResultSet& resultSet, main::ClientContext* context, MergeInfo& info);
 
-    bool patternExists();
+    bool patternExists() const;
 
     PatternCreationInfo getPatternCreationInfo() const {
         return hashTable->getPatternCreationInfo(keyVectors);
