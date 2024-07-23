@@ -9,6 +9,19 @@
 namespace kuzu {
 namespace processor {
 
+struct MergeInfo {
+    std::vector<DataPos> keyPoses;
+    FactorizedTableSchema tableSchema;
+    common::executor_info executorInfo;
+
+    MergeInfo(std::vector<DataPos> keyPoses, FactorizedTableSchema tableSchema,
+        common::executor_info executorInfo)
+        : keyPoses{std::move(keyPoses)}, tableSchema{std::move(tableSchema)},
+          executorInfo{std::move(executorInfo)} {}
+
+    MergeInfo copy() { return MergeInfo{keyPoses, tableSchema.copy(), executorInfo}; }
+};
+
 struct MergePrintInfo final : OPPrintInfo {
     binder::expression_vector pattern;
     std::vector<binder::expression_pair> onCreate;
@@ -35,27 +48,22 @@ struct MergeLocalState {
     std::vector<common::ValueVector*> unflatKeys;
     std::vector<common::ValueVector*> dependentKeys;
     common::DataChunkState* state;
-    std::unique_ptr<MarkHashTable> hashTable;
+    std::unique_ptr<PatternCreationInfoTable> hashTable;
 
-    void init(ResultSet& resultSet, main::ClientContext* context, HashAggregateInfo& info) {
+    void init(ResultSet& resultSet, main::ClientContext* context, MergeInfo& info) {
         std::vector<common::LogicalType> types;
-        for (auto& dataPos : info.flatKeysPos) {
-            auto keyVector = resultSet.getValueVector(dataPos).get();
+        for (auto& keyPos : info.keyPoses) {
+            auto keyVector = resultSet.getValueVector(keyPos).get();
             types.push_back(keyVector->dataType.copy());
             keyVectors.push_back(keyVector);
             state = keyVector->state.get();
         }
-        hashTable = std::make_unique<MarkHashTable>(*context->getMemoryManager(), std::move(types),
-            std::vector<common::LogicalType>{}, 0, std::move(info.tableSchema));
+        hashTable = std::make_unique<PatternCreationInfoTable>(*context->getMemoryManager(),
+            std::move(types), std::vector<common::LogicalType>{}, 0, std::move(info.tableSchema));
     }
 
-    void append(uint64_t multiplicity) const {
-        hashTable->append(keyVectors, unflatKeys, dependentKeys, state,
-            std::vector<AggregateInput>{}, multiplicity);
-    }
+    PatternCreationInfo append() const { return hashTable->append(keyVectors); }
 };
-
-struct MergeInfo : HashAggregateInfo {};
 
 class Merge : public PhysicalOperator {
     static constexpr PhysicalOperatorType type_ = PhysicalOperatorType::MERGE;
@@ -84,6 +92,13 @@ public:
     bool getNextTuplesInternal(ExecutionContext* context) final;
 
     std::unique_ptr<PhysicalOperator> clone() final;
+
+private:
+    void executeOnMatch(ExecutionContext* context);
+
+    bool hasPatternBeenCreated(PatternCreationInfo& insertedIDInfo);
+
+    void executeNoMatch(ExecutionContext* context);
 
 private:
     DataPos existenceMark;

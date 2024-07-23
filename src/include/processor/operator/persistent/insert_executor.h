@@ -23,7 +23,7 @@ public:
 
     void init(ResultSet* resultSet, ExecutionContext* context);
 
-    void insert(transaction::Transaction* transaction);
+    common::nodeID_t insert(transaction::Transaction* transaction);
 
     // For MERGE, we might need to skip the insert for duplicate input. But still, we need to write
     // the output vector for later usage.
@@ -65,7 +65,7 @@ public:
 
     void init(ResultSet* resultSet, ExecutionContext* context);
 
-    void insert(transaction::Transaction* transaction);
+    common::internalID_t insert(transaction::Transaction* transaction);
 
     // See comment in NodeInsertExecutor.
     void skipInsert();

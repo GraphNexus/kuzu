@@ -7,7 +7,8 @@ using namespace kuzu::planner;
 namespace kuzu {
 namespace processor {
 
-static FactorizedTableSchema getFactorizedTableSchema(const binder::expression_vector& keys) {
+static FactorizedTableSchema getFactorizedTableSchema(const binder::expression_vector& keys,
+    uint64_t numNodeInsertExecutors, uint64_t numRelInsertExecutors) {
     auto tableSchema = FactorizedTableSchema();
     auto isUnFlat = false;
     auto groupID = 0u;
@@ -15,7 +16,10 @@ static FactorizedTableSchema getFactorizedTableSchema(const binder::expression_v
         auto size = common::LogicalTypeUtils::getRowLayoutSize(key->dataType);
         tableSchema.appendColumn(ColumnSchema(isUnFlat, groupID, size));
     }
-    tableSchema.appendColumn(ColumnSchema(isUnFlat, groupID, sizeof(bool)));
+    auto numNodeIDFields = numNodeInsertExecutors + numRelInsertExecutors;
+    for (auto i = 0u; i < numNodeIDFields; i++) {
+        tableSchema.appendColumn(ColumnSchema(isUnFlat, groupID, sizeof(common::nodeID_t)));
+    }
     tableSchema.appendColumn(ColumnSchema(isUnFlat, groupID, sizeof(common::hash_t)));
     return tableSchema;
 }
@@ -43,11 +47,25 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapMerge(planner::LogicalOperator*
         onCreateRelSetExecutors.push_back(getRelSetExecutor(info, *inSchema));
     }
     std::vector<std::unique_ptr<NodeSetExecutor>> onMatchNodeSetExecutors;
-    for (auto& info : logicalMerge.getOnMatchSetNodeInfos()) {
+    common::executor_info executorInfo;
+    for (auto i = 0u; i < logicalMerge.getOnMatchSetNodeInfos().size(); i++) {
+        auto& info = logicalMerge.getOnMatchSetNodeInfos()[i];
+        for (auto j = 0u; j < logicalMerge.getInsertNodeInfos().size(); j++) {
+            if (*info.pattern == *logicalMerge.getInsertNodeInfos()[j].pattern) {
+                executorInfo.emplace(j, i);
+            }
+        }
         onMatchNodeSetExecutors.push_back(getNodeSetExecutor(info, *inSchema));
     }
     std::vector<std::unique_ptr<RelSetExecutor>> onMatchRelSetExecutors;
-    for (auto& info : logicalMerge.getOnMatchSetRelInfos()) {
+    for (auto i = 0u; i < logicalMerge.getOnMatchSetRelInfos().size(); i++) {
+        auto& info = logicalMerge.getOnMatchSetRelInfos()[i];
+        for (auto j = 0u; j < logicalMerge.getInsertRelInfos().size(); j++) {
+            if (*info.pattern == *logicalMerge.getInsertRelInfos()[j].pattern) {
+                executorInfo.emplace(j + logicalMerge.getInsertNodeInfos().size(),
+                    i + logicalMerge.getOnMatchSetNodeInfos().size());
+            }
+        }
         onMatchRelSetExecutors.push_back(getRelSetExecutor(info, *inSchema));
     }
     binder::expression_vector expressions;
@@ -77,9 +95,11 @@ std::unique_ptr<PhysicalOperator> PlanMapper::mapMerge(planner::LogicalOperator*
     }
     auto printInfo =
         std::make_unique<MergePrintInfo>(expressions, onCreateOperation, onMatchOperation);
-    MergeInfo mergeInfo{HashAggregateInfo{getDataPos(logicalMerge.getKeys(), *inSchema),
-        std::vector<DataPos>{}, std::vector<DataPos>{},
-        getFactorizedTableSchema(logicalMerge.getKeys()), HashTableType::MARK_HASH_TABLE}};
+    MergeInfo mergeInfo{getDataPos(logicalMerge.getKeys(), *inSchema),
+        getFactorizedTableSchema(logicalMerge.getKeys(),
+            logicalMerge.getOnMatchSetNodeInfos().size(),
+            logicalMerge.getOnMatchSetRelInfos().size()),
+        std::move(executorInfo)};
     return std::make_unique<Merge>(existenceMarkPos, std::move(nodeInsertExecutors),
         std::move(relInsertExecutors), std::move(onCreateNodeSetExecutors),
         std::move(onCreateRelSetExecutors), std::move(onMatchNodeSetExecutors),

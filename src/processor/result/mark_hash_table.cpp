@@ -3,48 +3,25 @@
 namespace kuzu {
 namespace processor {
 
-MarkHashTable::MarkHashTable(storage::MemoryManager& memoryManager,
+PatternCreationInfoTable::PatternCreationInfoTable(storage::MemoryManager& memoryManager,
     std::vector<common::LogicalType> keyTypes, std::vector<common::LogicalType> payloadTypes,
     uint64_t numEntriesToAllocate, FactorizedTableSchema tableSchema)
     : AggregateHashTable(memoryManager, std::move(keyTypes), std::move(payloadTypes),
           std::vector<std::unique_ptr<function::AggregateFunction>>{} /* empty aggregates */,
           std::vector<common::LogicalType>{} /* empty distinct agg key*/, numEntriesToAllocate,
-          std::move(tableSchema)) {
-    distinctColIdxInFT = hashColIdxInFT - 1;
-}
+          std::move(tableSchema)) {}
 
-uint64_t MarkHashTable::matchFTEntries(const std::vector<common::ValueVector*>& flatKeyVectors,
+uint64_t PatternCreationInfoTable::matchFTEntries(const std::vector<common::ValueVector*>& flatKeyVectors,
     const std::vector<common::ValueVector*>& unFlatKeyVectors, uint64_t numMayMatches,
     uint64_t numNoMatches) {
-    auto colIdx = 0u;
-    for (auto& flatKeyVector : flatKeyVectors) {
-        numMayMatches =
-            matchFlatVecWithFTColumn(flatKeyVector, numMayMatches, numNoMatches, colIdx++);
-    }
-    for (auto& unFlatKeyVector : unFlatKeyVectors) {
-        numMayMatches =
-            matchUnFlatVecWithFTColumn(unFlatKeyVector, numMayMatches, numNoMatches, colIdx++);
-    }
-    for (auto i = 0u; i < numMayMatches; i++) {
-        noMatchIdxes[numNoMatches++] = mayMatchIdxes[i];
-        onMatchSlotIdxes.emplace(mayMatchIdxes[i]);
-    }
+    KU_ASSERT(unFlatKeyVectors.empty());
+    numNoMatches = AggregateHashTable::matchFTEntries(flatKeyVectors, unFlatKeyVectors,
+        numMayMatches, numNoMatches);
+    KU_ASSERT(numMayMatches <= 1);
+    // If we found the entry for the target key, we set tuple to the key tuple. Otherwise, simply
+    // set tuple to nullptr.
+    tuple = numMayMatches != 0 ? hashSlotsToUpdateAggState[mayMatchIdxes[0]]->entry : nullptr;
     return numNoMatches;
-}
-
-void MarkHashTable::initializeFTEntries(const std::vector<common::ValueVector*>& flatKeyVectors,
-    const std::vector<common::ValueVector*>& unFlatKeyVectors,
-    const std::vector<common::ValueVector*>& dependentKeyVectors,
-    uint64_t numFTEntriesToInitialize) {
-    AggregateHashTable::initializeFTEntries(flatKeyVectors, unFlatKeyVectors, dependentKeyVectors,
-        numFTEntriesToInitialize);
-    for (auto i = 0u; i < numFTEntriesToInitialize; i++) {
-        auto entryIdx = entryIdxesToInitialize[i];
-        auto entry = hashSlotsToUpdateAggState[entryIdx]->entry;
-        auto onMatch = !onMatchSlotIdxes.contains(entryIdx);
-        onMatchSlotIdxes.erase(entryIdx);
-        factorizedTable->updateFlatCellNoNull(entry, distinctColIdxInFT, &onMatch /* isOnMatch */);
-    }
 }
 
 } // namespace processor

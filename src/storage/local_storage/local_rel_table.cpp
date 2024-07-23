@@ -238,7 +238,7 @@ bool LocalRelTable::insert(TableInsertState& state) {
 }
 
 bool LocalRelTable::update(TableUpdateState& updateState) {
-    auto& state = ku_dynamic_cast<TableUpdateState&, RelTableUpdateState&>(updateState);
+    auto& state = updateState.constCast<RelTableUpdateState>();
     auto fwdIDVectors = std::vector<ValueVector*>{const_cast<ValueVector*>(&state.srcNodeIDVector),
         const_cast<ValueVector*>(&state.relIDVector)};
     auto bwdIDVectors = std::vector<ValueVector*>{const_cast<ValueVector*>(&state.dstNodeIDVector),

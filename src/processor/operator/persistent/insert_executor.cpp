@@ -44,19 +44,20 @@ static void writeColumnVector(common::ValueVector* columnVector, common::ValueVe
     }
 }
 
-void NodeInsertExecutor::insert(Transaction* tx) {
+nodeID_t NodeInsertExecutor::insert(Transaction* tx) {
     for (auto& evaluator : columnDataEvaluators) {
         evaluator->evaluate();
     }
     KU_ASSERT(nodeIDVector->state->getSelVector().getSelSize() == 1);
     if (checkConflict(tx)) {
-        return;
+        return nodeIDVector->getValue<nodeID_t>(nodeIDVector->state->getSelVector()[0]);
     }
     // TODO: Move pkVector pos to info.
     auto nodeInsertState = std::make_unique<storage::NodeTableInsertState>(*nodeIDVector,
         *columnDataVectors[table->getPKColumnID()], columnDataVectors);
     table->insert(tx, *nodeInsertState);
     writeResult();
+    return nodeIDVector->getValue<nodeID_t>(nodeIDVector->state->getSelVector()[0]);
 }
 
 void NodeInsertExecutor::skipInsert() {
@@ -120,7 +121,7 @@ void RelInsertExecutor::init(ResultSet* resultSet, ExecutionContext* context) {
     }
 }
 
-void RelInsertExecutor::insert(transaction::Transaction* tx) {
+internalID_t RelInsertExecutor::insert(transaction::Transaction* tx) {
     auto srcNodeIDPos = srcNodeIDVector->state->getSelVector()[0];
     auto dstNodeIDPos = dstNodeIDVector->state->getSelVector()[0];
     if (srcNodeIDVector->isNull(srcNodeIDPos) || dstNodeIDVector->isNull(dstNodeIDPos)) {
@@ -133,10 +134,11 @@ void RelInsertExecutor::insert(transaction::Transaction* tx) {
             auto lhsPos = columnVector->state->getSelVector()[0];
             columnVector->setNull(lhsPos, true);
         }
-        return;
+        return {0, 0};
     }
     auto offset = relsStatistics->getNextRelOffset(tx, table->getTableID());
-    columnDataVectors[0]->setValue<internalID_t>(0, internalID_t{offset, table->getTableID()});
+    auto relID = internalID_t{offset, table->getTableID()};
+    columnDataVectors[0]->setValue<internalID_t>(0, relID);
     columnDataVectors[0]->setNull(0, false);
     for (auto i = 1u; i < columnDataEvaluators.size(); ++i) {
         columnDataEvaluators[i]->evaluate();
@@ -145,6 +147,7 @@ void RelInsertExecutor::insert(transaction::Transaction* tx) {
         *dstNodeIDVector, columnDataVectors);
     table->insert(tx, *insertState);
     writeResult();
+    return relID;
 }
 
 void RelInsertExecutor::skipInsert() {

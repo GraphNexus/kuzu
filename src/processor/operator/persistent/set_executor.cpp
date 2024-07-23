@@ -17,6 +17,10 @@ void NodeSetExecutor::init(ResultSet* resultSet, ExecutionContext* context) {
     }
 }
 
+void NodeSetExecutor::setNodeID(common::nodeID_t nodeID) {
+    nodeIDVector->setValue(nodeIDVector->state->getSelVector()[0], nodeID);
+}
+
 std::vector<std::unique_ptr<NodeSetExecutor>> NodeSetExecutor::copy(
     const std::vector<std::unique_ptr<NodeSetExecutor>>& others) {
     std::vector<std::unique_ptr<NodeSetExecutor>> result;
@@ -96,6 +100,10 @@ void RelSetExecutor::init(ResultSet* resultSet, ExecutionContext* context) {
     rhsVector = evaluator->resultVector.get();
 }
 
+void RelSetExecutor::setRelID(common::nodeID_t relID) {
+    relIDVector->setValue(relIDVector->state->getSelVector()[0], relID);
+}
+
 std::vector<std::unique_ptr<RelSetExecutor>> RelSetExecutor::copy(
     const std::vector<std::unique_ptr<RelSetExecutor>>& executors) {
     std::vector<std::unique_ptr<RelSetExecutor>> executorsCopy;
@@ -125,6 +133,10 @@ void SingleLabelRelSetExecutor::set(ExecutionContext* context) {
         return;
     }
     evaluator->evaluate();
+    auto rhsValue = rhsVector->getValue<int64_t>(rhsVector->state->getSelVector()[0]);
+    auto relIDValue = relIDVector->getValue<relID_t>(relIDVector->state->getSelVector()[0]);
+    auto srcValue = srcNodeIDVector->getValue<nodeID_t>(srcNodeIDVector->state->getSelVector()[0]);
+    auto dstValue = dstNodeIDVector->getValue<nodeID_t>(dstNodeIDVector->state->getSelVector()[0]);
     auto updateState = std::make_unique<storage::RelTableUpdateState>(columnID, *srcNodeIDVector,
         *dstNodeIDVector, *relIDVector, *rhsVector);
     table->update(context->clientContext->getTx(), *updateState);

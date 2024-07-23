@@ -102,7 +102,7 @@ void HashAggregateLocalState::init(ResultSet& resultSet, main::ClientContext* co
             std::move(types), 0, std::move(info.tableSchema));
         break;
     case HashTableType::MARK_HASH_TABLE:
-        aggregateHashTable = std::make_unique<MarkHashTable>(*context->getMemoryManager(),
+        aggregateHashTable = std::make_unique<PatternCreationInfoTable>(*context->getMemoryManager(),
             std::move(keyDataTypes), std::move(payloadDataTypes), 0, std::move(info.tableSchema));
         break;
     default:

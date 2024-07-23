@@ -34,6 +34,8 @@ public:
 
     virtual void set(ExecutionContext* context) = 0;
 
+    void setNodeID(common::nodeID_t nodeID);
+
     virtual std::unique_ptr<NodeSetExecutor> copy() const = 0;
 
     static std::vector<std::unique_ptr<NodeSetExecutor>> copy(
@@ -114,6 +116,8 @@ public:
     virtual ~RelSetExecutor() = default;
 
     void init(ResultSet* resultSet, ExecutionContext* context);
+
+    void setRelID(common::nodeID_t relID);
 
     virtual void set(ExecutionContext* context) = 0;
 

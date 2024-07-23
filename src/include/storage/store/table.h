@@ -53,6 +53,11 @@ struct TableUpdateState {
     TableUpdateState(common::column_id_t columnID, const common::ValueVector& propertyVector)
         : columnID{columnID}, propertyVector{propertyVector} {}
     virtual ~TableUpdateState() = default;
+
+    template<class TARGET>
+    const TARGET& constCast() const {
+        return common::ku_dynamic_cast<const TableUpdateState&, const TARGET&>(*this);
+    }
 };
 
 struct TableDeleteState {

@@ -40,62 +40,84 @@ void Merge::initLocalStateInternal(ResultSet* /*resultSet_*/, ExecutionContext* 
     localState.init(*resultSet, context->clientContext, info);
 }
 
+void Merge::executeOnMatch(ExecutionContext* context) {
+    for (auto& executor : onMatchNodeSetExecutors) {
+        executor->set(context);
+    }
+    for (auto& executor : onMatchRelSetExecutors) {
+        executor->set(context);
+    }
+}
+
+bool Merge::hasPatternBeenCreated(PatternCreationInfo& insertedIDInfo) {
+    if (!localState.keyVectors.empty()) {
+        return !insertedIDInfo.isDistinct;
+    } else {
+        hasInserted = true;
+        return false;
+    }
+}
+
+void Merge::executeNoMatch(ExecutionContext* context) {
+    PatternCreationInfo insertedIDInfo;
+    if (!localState.keyVectors.empty()) {
+        insertedIDInfo = localState.append();
+    }
+    if (hasPatternBeenCreated(insertedIDInfo)) {
+        for (auto& executor : nodeInsertExecutors) {
+            executor.skipInsert();
+        }
+        for (auto& executor : relInsertExecutors) {
+            executor.skipInsert();
+        }
+        for (auto i = 0u; i < onMatchNodeSetExecutors.size(); i++) {
+            auto& executor = onMatchNodeSetExecutors[i];
+            auto nodeIDToSet = insertedIDInfo.getNodeID(i);
+            executor->setNodeID(nodeIDToSet);
+            executor->set(context);
+        }
+        for (auto i = 0u; i < onMatchRelSetExecutors.size(); i++) {
+            auto& executor = onMatchRelSetExecutors[i];
+            auto relIDToSet = insertedIDInfo.getNodeID(i + onMatchNodeSetExecutors.size());
+            executor->setRelID(relIDToSet);
+            executor->set(context);
+        }
+    } else {
+        // do insert and on create
+        for (auto i = 0u; i < nodeInsertExecutors.size(); i++) {
+            auto& executor = nodeInsertExecutors[i];
+            auto nodeID = executor.insert(context->clientContext->getTx());
+            if (!localState.keyVectors.empty()) {
+                insertedIDInfo.updateID(i, info.executorInfo, nodeID);
+            }
+        }
+        for (auto i = 0u; i < relInsertExecutors.size(); i++) {
+            auto& executor = relInsertExecutors[i];
+            auto relID = executor.insert(context->clientContext->getTx());
+            if (!localState.keyVectors.empty()) {
+                insertedIDInfo.updateID(i + nodeInsertExecutors.size(), info.executorInfo, relID);
+            }
+        }
+        for (auto& executor : onCreateNodeSetExecutors) {
+            executor->set(context);
+        }
+        for (auto& executor : onCreateRelSetExecutors) {
+            executor->set(context);
+        }
+    }
+}
+
 bool Merge::getNextTuplesInternal(ExecutionContext* context) {
     if (!children[0]->getNextTuple(context)) {
         return false;
-    }
-    if (!localState.keyVectors.empty()) {
-        localState.append(resultSet->multiplicity);
     }
     KU_ASSERT(existenceVector->state->getSelVector().getSelSize() == 1);
     auto pos = existenceVector->state->getSelVector()[0];
     auto patternExist = existenceVector->getValue<bool>(pos);
     if (patternExist) {
-        for (auto& executor : onMatchNodeSetExecutors) {
-            executor->set(context);
-        }
-        for (auto& executor : onMatchRelSetExecutors) {
-            executor->set(context);
-        }
+        executeOnMatch(context);
     } else {
-        auto patternHasBeenCreated = false;
-        auto ft = localState.hashTable->getFactorizedTable();
-        if (!localState.keyVectors.empty()) {
-            patternHasBeenCreated = !*(bool*)(ft->getTuple(ft->getNumTuples() - 1) +
-                                              ft->getTableSchema()->getColOffset(
-                                                  ft->getTableSchema()->getNumColumns() - 2));
-        } else {
-            patternHasBeenCreated = hasInserted;
-            hasInserted = true;
-        }
-        if (patternHasBeenCreated) {
-            for (auto& executor : nodeInsertExecutors) {
-                executor.skipInsert();
-            }
-            for (auto& executor : relInsertExecutors) {
-                executor.skipInsert();
-            }
-            for (auto& executor : onMatchNodeSetExecutors) {
-                executor->set(context);
-            }
-            for (auto& executor : onMatchRelSetExecutors) {
-                executor->set(context);
-            }
-        } else {
-            // do insert and on create
-            for (auto& executor : nodeInsertExecutors) {
-                executor.insert(context->clientContext->getTx());
-            }
-            for (auto& executor : relInsertExecutors) {
-                executor.insert(context->clientContext->getTx());
-            }
-            for (auto& executor : onCreateNodeSetExecutors) {
-                executor->set(context);
-            }
-            for (auto& executor : onCreateRelSetExecutors) {
-                executor->set(context);
-            }
-        }
+        executeNoMatch(context);
     }
     return true;
 }
@@ -105,7 +127,7 @@ std::unique_ptr<PhysicalOperator> Merge::clone() {
         copyVector(relInsertExecutors), NodeSetExecutor::copy(onCreateNodeSetExecutors),
         RelSetExecutor::copy(onCreateRelSetExecutors),
         NodeSetExecutor::copy(onMatchNodeSetExecutors),
-        RelSetExecutor::copy(onMatchRelSetExecutors), info, children[0]->clone(), id,
+        RelSetExecutor::copy(onMatchRelSetExecutors), info.copy(), children[0]->clone(), id,
         printInfo->copy());
 }
 

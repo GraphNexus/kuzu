@@ -104,7 +104,7 @@ protected:
     uint64_t matchFlatVecWithFTColumn(common::ValueVector* vector, uint64_t numMayMatches,
         uint64_t& numNoMatches, uint32_t colIdx);
 
-private:
+public:
     void initializeFT(
         const std::vector<std::unique_ptr<function::AggregateFunction>>& aggregateFunctions,
         FactorizedTableSchema tableSchema);
