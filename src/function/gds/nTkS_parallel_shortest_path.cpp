@@ -76,16 +76,16 @@ public:
                                  VISITED_DST, __ATOMIC_ACQ_REL)) {
                     numDstVisitedLocal++;
                     __atomic_store_n(&ifeMorsel->pathLength[dstNodeID.offset],
-                        ifeMorsel->currentLevel + 1, __ATOMIC_RELAXED);
+                        ifeMorsel->currentLevel + 1, __ATOMIC_RELEASE);
                     __atomic_store_n(&ifeMorsel->nextFrontier[dstNodeID.offset], 1u,
-                        __ATOMIC_RELAXED);
+                        __ATOMIC_RELEASE);
                 }
             } else if (state == NOT_VISITED) {
                 if (state == __atomic_exchange_n(&ifeMorsel->visitedNodes[dstNodeID.offset],
                                  VISITED, __ATOMIC_ACQ_REL)) {
                     numNonDstVisitedLocal++;
                     __atomic_store_n(&ifeMorsel->nextFrontier[dstNodeID.offset], 1u,
-                        __ATOMIC_RELAXED);
+                        __ATOMIC_RELEASE);
                 }
             }
         }
@@ -111,14 +111,14 @@ public:
                                  __ATOMIC_ACQ_REL)) {
                     numDstVisitedLocal++;
                     __atomic_store_n(&ifeMorsel->pathLength[nbrOffset], ifeMorsel->currentLevel + 1,
-                        __ATOMIC_RELAXED);
-                    __atomic_store_n(&ifeMorsel->nextFrontier[nbrOffset], 1u, __ATOMIC_RELAXED);
+                        __ATOMIC_RELEASE);
+                    __atomic_store_n(&ifeMorsel->nextFrontier[nbrOffset], 1u, __ATOMIC_RELEASE);
                 }
             } else if (state == NOT_VISITED) {
                 if (state == __atomic_exchange_n(&ifeMorsel->visitedNodes[nbrOffset], VISITED,
                                  __ATOMIC_ACQ_REL)) {
                     numNonDstVisitedLocal++;
-                    __atomic_store_n(&ifeMorsel->nextFrontier[nbrOffset], 1u, __ATOMIC_RELAXED);
+                    __atomic_store_n(&ifeMorsel->nextFrontier[nbrOffset], 1u, __ATOMIC_RELEASE);
                 }
             }
         }
@@ -334,7 +334,7 @@ public:
                     auto maxTaskThreads = std::min(maxThreads,
                         (uint64_t)std::ceil(ifeMorselTasks[i].first->maxOffset / 2048));
                     jobs.push_back(ParallelUtilsJob{executionContext, std::move(gdsLocalState),
-                        sharedState, shortestPathOutputFunc, true /* isParallel */});
+                        sharedState, shortestPathOutputFunc, maxTaskThreads});
                     jobIdxInMap.push_back(i);
                     continue;
                 } else {

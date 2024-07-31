@@ -75,16 +75,16 @@ public:
                                  VISITED_DST, __ATOMIC_ACQ_REL)) {
                     numDstVisitedLocal++;
                     __atomic_store_n(&ifeMorsel->pathLength[dstNodeID.offset],
-                        ifeMorsel->currentLevel + 1, __ATOMIC_RELAXED);
+                        ifeMorsel->currentLevel + 1, __ATOMIC_RELEASE);
                     __atomic_store_n(&ifeMorsel->nextFrontier[dstNodeID.offset], 1u,
-                        __ATOMIC_RELAXED);
+                        __ATOMIC_RELEASE);
                 }
             } else if (state == NOT_VISITED) {
                 if (state == __atomic_exchange_n(&ifeMorsel->visitedNodes[dstNodeID.offset],
                                  VISITED, __ATOMIC_ACQ_REL)) {
                     numNonDstVisitedLocal++;
                     __atomic_store_n(&ifeMorsel->nextFrontier[dstNodeID.offset], 1u,
-                        __ATOMIC_RELAXED);
+                        __ATOMIC_RELEASE);
                 }
             }
         }
@@ -110,14 +110,14 @@ public:
                                  __ATOMIC_ACQ_REL)) {
                     numDstVisitedLocal++;
                     __atomic_store_n(&ifeMorsel->pathLength[nbrOffset], ifeMorsel->currentLevel + 1,
-                        __ATOMIC_RELAXED);
-                    __atomic_store_n(&ifeMorsel->nextFrontier[nbrOffset], 1u, __ATOMIC_RELAXED);
+                        __ATOMIC_RELEASE);
+                    __atomic_store_n(&ifeMorsel->nextFrontier[nbrOffset], 1u, __ATOMIC_RELEASE);
                 }
             } else if (state == NOT_VISITED) {
                 if (state == __atomic_exchange_n(&ifeMorsel->visitedNodes[nbrOffset], VISITED,
                                  __ATOMIC_ACQ_REL)) {
                     numNonDstVisitedLocal++;
-                    __atomic_store_n(&ifeMorsel->nextFrontier[nbrOffset], 1u, __ATOMIC_RELAXED);
+                    __atomic_store_n(&ifeMorsel->nextFrontier[nbrOffset], 1u, __ATOMIC_RELEASE);
                 }
             }
         }
@@ -268,8 +268,10 @@ public:
             auto millis = std::chrono::duration_cast<std::chrono::milliseconds>(duration).count();*/
             auto gdsLocalState = std::make_unique<ParallelShortestPathLocalState>();
             gdsLocalState->ifeMorsel = ifeMorsel.get();
+            auto maxTaskThreads =
+                std::min(maxThreads, (uint64_t)std::ceil(ifeMorsel->maxOffset / 2048));
             auto job = ParallelUtilsJob{executionContext, std::move(gdsLocalState), sharedState,
-                shortestPathOutputFunc, true /* isParallel */};
+                shortestPathOutputFunc, maxTaskThreads};
             parallelUtils->submitParallelTaskAndWait(job);
             /*auto duration1 = std::chrono::system_clock::now().time_since_epoch();
             auto millis1 = std::chrono::duration_cast<std::chrono::milliseconds>(duration1).count();

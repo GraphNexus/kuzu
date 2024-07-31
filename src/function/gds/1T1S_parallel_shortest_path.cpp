@@ -151,6 +151,9 @@ public:
                 }
             } else {
                 for (auto offset = 0u; offset < ifeMorsel->visitedNodes.size(); offset++) {
+                    if (!ifeMorsel->currentFrontier[offset]) {
+                        continue;
+                    }
                     extendNode(graph.get(), ifeMorsel, offset, numDstVisitedLocal,
                         numNonDstVisitedLocal, nbrScanState.get());
                 }
