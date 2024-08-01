@@ -71,8 +71,7 @@ public:
             dstNodeID = nbrNodes[j];
             state = ifeMorsel->visitedNodes[dstNodeID.offset];
             if (state == NOT_VISITED_DST) {
-                if (state == __atomic_exchange_n(&ifeMorsel->visitedNodes[dstNodeID.offset],
-                                 VISITED_DST, __ATOMIC_ACQ_REL)) {
+                if (__sync_bool_compare_and_swap(&ifeMorsel->visitedNodes[dstNodeID.offset], state, VISITED_DST)) {
                     numDstVisitedLocal++;
                     __atomic_store_n(&ifeMorsel->pathLength[dstNodeID.offset],
                         ifeMorsel->currentLevel + 1, __ATOMIC_RELEASE);
@@ -80,8 +79,7 @@ public:
                         __ATOMIC_RELEASE);
                 }
             } else if (state == NOT_VISITED) {
-                if (state == __atomic_exchange_n(&ifeMorsel->visitedNodes[dstNodeID.offset],
-                                 VISITED, __ATOMIC_ACQ_REL)) {
+                if (__sync_bool_compare_and_swap(&ifeMorsel->visitedNodes[dstNodeID.offset], state, VISITED)) {
                     numNonDstVisitedLocal++;
                     __atomic_store_n(&ifeMorsel->nextFrontier[dstNodeID.offset], 1u,
                         __ATOMIC_RELEASE);
@@ -106,16 +104,14 @@ public:
             auto nbrOffset = csrEntry->nbrNodeOffsets[nbrIdx];
             auto state = ifeMorsel->visitedNodes[nbrOffset];
             if (state == NOT_VISITED_DST) {
-                if (state == __atomic_exchange_n(&ifeMorsel->visitedNodes[nbrOffset], VISITED_DST,
-                                 __ATOMIC_ACQ_REL)) {
+                if (__sync_bool_compare_and_swap(&ifeMorsel->visitedNodes[nbrOffset], state, VISITED_DST)) {
                     numDstVisitedLocal++;
                     __atomic_store_n(&ifeMorsel->pathLength[nbrOffset], ifeMorsel->currentLevel + 1,
                         __ATOMIC_RELEASE);
                     __atomic_store_n(&ifeMorsel->nextFrontier[nbrOffset], 1u, __ATOMIC_RELEASE);
                 }
             } else if (state == NOT_VISITED) {
-                if (state == __atomic_exchange_n(&ifeMorsel->visitedNodes[nbrOffset], VISITED,
-                                 __ATOMIC_ACQ_REL)) {
+                if (__sync_bool_compare_and_swap(&ifeMorsel->visitedNodes[nbrOffset], state, VISITED)) {
                     numNonDstVisitedLocal++;
                     __atomic_store_n(&ifeMorsel->nextFrontier[nbrOffset], 1u, __ATOMIC_RELEASE);
                 }
