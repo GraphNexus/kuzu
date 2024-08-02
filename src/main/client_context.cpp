@@ -174,6 +174,14 @@ TaskScheduler* ClientContext::getTaskScheduler() const {
     return localDatabase->queryProcessor->getTaskScheduler();
 }
 
+int64_t ClientContext::getWorkerPoolSize() const {
+    return getTaskScheduler()->getWorkerPoolSize();
+}
+
+void ClientContext::setWorkerPoolSize(int64_t newSize) const {
+    getTaskScheduler()->setWorkerPoolSize(newSize);
+}
+
 DatabaseManager* ClientContext::getDatabaseManager() const {
     return localDatabase->databaseManager.get();
 }

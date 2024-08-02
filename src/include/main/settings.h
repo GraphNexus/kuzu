@@ -36,10 +36,10 @@ struct WorkerPoolSetting {
     static constexpr const common::LogicalTypeID inputType = common::LogicalTypeID::INT64;
     static void setContext(ClientContext* context, const common::Value& parameter) {
         parameter.validateType(inputType);
-        context->getTaskScheduler()->setWorkerPoolSize(parameter.getValue<int64_t>());
+        context->setWorkerPoolSize(parameter.getValue<int64_t>());
     }
     static common::Value getSetting(ClientContext* context) {
-        return common::Value(context->getTaskScheduler()->getWorkerPoolSize());
+        return common::Value(context->getWorkerPoolSize());
     }
 };
 

@@ -100,6 +100,8 @@ public:
     std::string getDatabasePath() const;
     Database* getDatabase() const { return localDatabase; }
     common::TaskScheduler* getTaskScheduler() const;
+    int64_t getWorkerPoolSize() const;
+    void setWorkerPoolSize(int64_t newSize) const;
     DatabaseManager* getDatabaseManager() const;
     storage::StorageManager* getStorageManager() const;
     storage::MemoryManager* getMemoryManager();
