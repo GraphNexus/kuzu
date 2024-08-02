@@ -28,16 +28,12 @@ void TaskScheduler::setWorkerPoolSize(uint64_t newSize) {
     stopWorkerThreads = true;
     lck.unlock();
     cv.notify_all();
-    if (newSize > workerThreads.size()) {
-        int prevSize = workerThreads.size();
-        for (auto n = 0u; n < (newSize - prevSize); n++) {
-            workerThreads.emplace_back([&] { runWorkerThread(); });
-        }
-    } else {
-        while (newSize != workerThreads.size()) {
-            workerThreads.end()->join();
-            workerThreads.pop_back();
-        }
+    for (auto& thread : workerThreads) {
+        thread.join();
+    }
+    workerThreads.clear();
+    for (auto n = 0u; n < newSize; ++n) {
+        workerThreads.emplace_back([&] { runWorkerThread(); });
     }
 }
 
