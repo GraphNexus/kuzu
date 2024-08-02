@@ -41,6 +41,12 @@ public:
     explicit TaskScheduler(uint64_t numWorkerThreads);
     ~TaskScheduler();
 
+    inline int64_t getWorkerPoolSize() const {
+        return workerThreads.size();
+    }
+
+    void setWorkerPoolSize(uint64_t newSize);
+
     // Schedules the dependencies of the given task and finally the task one after another (so
     // not concurrently), and throws an exception if any of the tasks errors. Regardless of
     // whether or not the given task or one of its dependencies errors, when this function

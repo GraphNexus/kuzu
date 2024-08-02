@@ -31,6 +31,18 @@ struct ConcurrentBFSSetting {
     }
 };
 
+struct WorkerPoolSetting {
+    static constexpr const char* name = "worker_pool";
+    static constexpr const common::LogicalTypeID inputType = common::LogicalTypeID::INT64;
+    static void setContext(ClientContext* context, const common::Value& parameter) {
+        parameter.validateType(inputType);
+        context->getTaskScheduler()->setWorkerPoolSize(parameter.getValue<int64_t>());
+    }
+    static common::Value getSetting(ClientContext* context) {
+        return common::Value(context->getTaskScheduler()->getWorkerPoolSize());
+    }
+};
+
 struct TimeoutSetting {
     static constexpr const char* name = "timeout";
     static constexpr const common::LogicalTypeID inputType = common::LogicalTypeID::INT64;

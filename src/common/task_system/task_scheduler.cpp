@@ -23,6 +23,24 @@ TaskScheduler::~TaskScheduler() {
     }
 }
 
+void TaskScheduler::setWorkerPoolSize(uint64_t newSize) {
+    lock_t lck{mtx};
+    stopWorkerThreads = true;
+    lck.unlock();
+    cv.notify_all();
+    if (newSize > workerThreads.size()) {
+        int prevSize = workerThreads.size();
+        for (auto n = 0u; n < (newSize - prevSize); n++) {
+            workerThreads.emplace_back([&] { runWorkerThread(); });
+        }
+    } else {
+        while (newSize != workerThreads.size()) {
+            workerThreads.end()->join();
+            workerThreads.pop_back();
+        }
+    }
+}
+
 void TaskScheduler::scheduleTaskAndWaitOrError(const std::shared_ptr<Task>& task,
     processor::ExecutionContext* context) {
     for (auto& dependency : task->children) {
