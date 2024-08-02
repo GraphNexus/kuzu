@@ -24,16 +24,31 @@ TaskScheduler::~TaskScheduler() {
 }
 
 void TaskScheduler::setWorkerPoolSize(uint64_t newSize) {
-    lock_t lck{mtx};
-    stopWorkerThreads = true;
-    lck.unlock();
-    cv.notify_all();
-    for (auto& thread : workerThreads) {
-        thread.join();
-    }
-    workerThreads.clear();
-    for (auto n = 0u; n < newSize; ++n) {
-        workerThreads.emplace_back([&] { runWorkerThread(); });
+    auto thisTheadID = std::this_thread::get_id();
+    if (newSize > workerThreads.size()) {
+        for (auto i = 0u; i < (newSize - workerThreads.size()); i++) {
+            workerThreads.emplace_back([&] { runWorkerThread(); });
+        }
+    } else {
+        lock_t lck{mtx};
+        stopWorkerThreads = true;
+        lck.unlock();
+        cv.notify_all();
+        auto it = workerThreads.begin();
+        while (it != workerThreads.end()) {
+            if (it->get_id() == thisTheadID) {
+                it++;
+            } else {
+                it->join();
+                it = workerThreads.erase(it);
+            }
+        }
+        lck.lock();
+        stopWorkerThreads = false;
+        lck.unlock();
+        for (auto i = 0u; i < (newSize - 1); i++) {
+            workerThreads.emplace_back([&] { runWorkerThread(); });
+        }
     }
 }
 
