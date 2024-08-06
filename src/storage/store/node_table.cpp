@@ -65,9 +65,9 @@ bool NodeTable::scanInternal(Transaction* transaction, TableScanState& scanState
     auto& nodeScanState = ku_dynamic_cast<TableScanState&, NodeTableScanState&>(scanState);
     auto& dataScanState =
         ku_dynamic_cast<TableDataScanState&, NodeDataScanState&>(*scanState.dataScanState);
-    if (!dataScanState.nextVector()) {
+    /*if (!dataScanState.nextVector()) {
         return false;
-    }
+    }*/
     switch (scanState.source) {
     case TableScanSource::UNCOMMITTED: {
         return scanUnCommitted(nodeScanState);

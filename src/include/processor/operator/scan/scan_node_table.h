@@ -11,12 +11,13 @@ class ScanNodeTableSharedState {
 public:
     explicit ScanNodeTableSharedState(std::unique_ptr<NodeVectorLevelSemiMask> semiMask)
         : table{nullptr}, currentCommittedGroupIdx{common::INVALID_NODE_GROUP_IDX},
-          currentUnCommittedGroupIdx{common::INVALID_NODE_GROUP_IDX}, numCommittedNodeGroups{0},
-          semiMask{std::move(semiMask)} {};
+          nextCommittedGroupIdx{common::INVALID_NODE_GROUP_IDX}, currentNodeGroupVectorIdx{0u},
+          totalNodeGroupVectors{0u}, currentUnCommittedGroupIdx{common::INVALID_NODE_GROUP_IDX},
+          numCommittedNodeGroups{0}, semiMask{std::move(semiMask)} {};
 
     void initialize(transaction::Transaction* transaction, storage::NodeTable* table);
 
-    void nextMorsel(storage::NodeTableScanState& scanState);
+    void nextMorsel(transaction::Transaction* txn, storage::NodeTableScanState& scanState);
 
     inline storage::NodeTable* getNodeTable() const { return table; }
 
@@ -26,6 +27,9 @@ private:
     std::mutex mtx;
     storage::NodeTable* table;
     common::node_group_idx_t currentCommittedGroupIdx;
+    common::node_group_idx_t nextCommittedGroupIdx;
+    uint64_t currentNodeGroupVectorIdx;
+    uint64_t totalNodeGroupVectors;
     common::node_group_idx_t currentUnCommittedGroupIdx;
     common::node_group_idx_t numCommittedNodeGroups;
     std::vector<storage::LocalNodeGroup*> localNodeGroups;

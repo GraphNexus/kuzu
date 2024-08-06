@@ -11,6 +11,9 @@ namespace processor {
 void ScanNodeTableSharedState::initialize(transaction::Transaction* transaction, NodeTable* table) {
     this->table = table;
     this->currentCommittedGroupIdx = 0;
+    this->nextCommittedGroupIdx = 0;
+    this->currentNodeGroupVectorIdx = 0u;
+    this->totalNodeGroupVectors = 0u;
     this->currentUnCommittedGroupIdx = 0;
     this->numCommittedNodeGroups = table->getNumCommittedNodeGroups();
     if (transaction->isWriteTransaction()) {
@@ -23,11 +26,40 @@ void ScanNodeTableSharedState::initialize(transaction::Transaction* transaction,
     }
 }
 
-void ScanNodeTableSharedState::nextMorsel(NodeTableScanState& scanState) {
+void ScanNodeTableSharedState::nextMorsel(transaction::Transaction* txn,
+    NodeTableScanState& scanState) {
     std::unique_lock lck{mtx};
     if (currentCommittedGroupIdx < numCommittedNodeGroups) {
-        scanState.nodeGroupIdx = currentCommittedGroupIdx++;
+        auto& nodeDataScanState = scanState.dataScanState->cast<NodeDataScanState>();
+        if (currentNodeGroupVectorIdx < totalNodeGroupVectors) {
+            if (scanState.nodeGroupIdx != currentCommittedGroupIdx) {
+                scanState.nodeGroupIdx = currentCommittedGroupIdx;
+                scanState.source = TableScanSource::COMMITTED;
+                table->initializeScanState(txn, scanState);
+            }
+            nodeDataScanState.vectorIdx = currentNodeGroupVectorIdx;
+            auto startOffsetInNodeGroup = currentNodeGroupVectorIdx * DEFAULT_VECTOR_CAPACITY;
+            nodeDataScanState.numRowsToScan = std::min(common::DEFAULT_VECTOR_CAPACITY,
+                nodeDataScanState.numRowsInNodeGroup - startOffsetInNodeGroup);
+            currentNodeGroupVectorIdx++;
+            return;
+        }
+        if (nextCommittedGroupIdx == numCommittedNodeGroups) {
+            scanState.source = TableScanSource::NONE;
+            return;
+        }
+        currentCommittedGroupIdx = nextCommittedGroupIdx;
+        nextCommittedGroupIdx++;
+        scanState.nodeGroupIdx = currentCommittedGroupIdx;
         scanState.source = TableScanSource::COMMITTED;
+        table->initializeScanState(txn, scanState);
+        totalNodeGroupVectors = std::ceil(
+            (double)nodeDataScanState.numRowsInNodeGroup / common::DEFAULT_VECTOR_CAPACITY);
+        currentNodeGroupVectorIdx = 0u;
+        auto startOffsetInNodeGroup = currentNodeGroupVectorIdx * DEFAULT_VECTOR_CAPACITY;
+        nodeDataScanState.numRowsToScan = std::min(common::DEFAULT_VECTOR_CAPACITY,
+            nodeDataScanState.numRowsInNodeGroup - startOffsetInNodeGroup);
+        nodeDataScanState.vectorIdx = currentNodeGroupVectorIdx++;
         return;
     }
     if (currentUnCommittedGroupIdx < localNodeGroups.size()) {
@@ -76,18 +108,14 @@ bool ScanNodeTable::getNextTuplesInternal(ExecutionContext* context) {
         auto skipScan =
             transaction->isReadOnly() && scanState.zoneMapResult == ZoneMapCheckResult::SKIP_SCAN;
         if (!skipScan) {
-            while (scanState.source != TableScanSource::NONE &&
-                   info.table->scan(transaction, scanState)) {
+            sharedStates[currentTableIdx]->nextMorsel(transaction, scanState);
+            if (scanState.source != TableScanSource::NONE &&
+                info.table->scan(transaction, scanState)) {
                 if (scanState.nodeIDVector->state->getSelVector().getSelSize() > 0) {
                     return true;
                 }
             }
-        }
-        sharedStates[currentTableIdx]->nextMorsel(scanState);
-        if (scanState.source == TableScanSource::NONE) {
             currentTableIdx++;
-        } else {
-            info.table->initializeScanState(transaction, scanState);
         }
     }
     return false;
