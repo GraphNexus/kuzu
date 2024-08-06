@@ -8,6 +8,7 @@
 #include "common/file_system/file_info.h"
 #include "common/serializer/buffered_file.h"
 #include "main/client_context.h"
+#include "main/db_config.h"
 #include "processor/expression_mapper.h"
 #include "storage/local_storage/local_rel_table.h"
 #include "storage/storage_manager.h"
@@ -32,13 +33,12 @@ WALReplayer::WALReplayer(main::ClientContext& clientContext) : clientContext{cli
     pageBuffer = std::make_unique<uint8_t[]>(BufferPoolConstants::PAGE_4KB_SIZE);
 }
 
-void WALReplayer::replay() {
+void WALReplayer::replay() const {
     if (!clientContext.getVFSUnsafe()->fileOrPathExists(walFilePath, &clientContext)) {
         return;
     }
     auto fileInfo = clientContext.getVFSUnsafe()->openFile(walFilePath, O_RDONLY);
     const auto walFileSize = fileInfo->getFileSize();
-    // Check if the wal file is empty or corrupted. so nothing to read.
     if (walFileSize == 0) {
         return;
     }
@@ -49,11 +49,13 @@ void WALReplayer::replay() {
             replayWALRecord(*walRecord);
         }
         if (clientContext.getTransactionContext()->hasActiveTransaction()) {
-            // Handle the case that either the last transaction is not committed or the wal file is
-            // corrupted and there is no COMMIT record for the last transaction. We should rollback
-            // under this case, and clear the WAL file.
+            // Handle the case that either the last transaction is not committed or the wal file
+            // is corrupted and there is no COMMIT record for the last transaction. We should
+            // rollback under this case, and clear the WAL file.
             clientContext.getTransactionContext()->rollback();
-            clientContext.getStorageManager()->getWAL().clearWAL();
+            if (!clientContext.getDBConfig()->readOnly) {
+                clientContext.getStorageManager()->getWAL().clearWAL();
+            }
         }
     } catch (const Exception& e) {
         if (clientContext.getTransactionContext()->hasActiveTransaction()) {
@@ -66,7 +68,7 @@ void WALReplayer::replay() {
     }
 }
 
-void WALReplayer::replayWALRecord(const WALRecord& walRecord) {
+void WALReplayer::replayWALRecord(const WALRecord& walRecord) const {
     switch (walRecord.type) {
     case WALRecordType::BEGIN_TRANSACTION_RECORD: {
         clientContext.getTransactionContext()->beginRecoveryTransaction();
@@ -101,9 +103,6 @@ void WALReplayer::replayWALRecord(const WALRecord& walRecord) {
     case WALRecordType::REL_UPDATE_RECORD: {
         replayRelUpdateRecord(walRecord);
     } break;
-    case WALRecordType::COPY_TABLE_RECORD: {
-        replayCopyTableRecord(walRecord);
-    } break;
     case WALRecordType::DROP_CATALOG_ENTRY_RECORD: {
         replayDropCatalogEntryRecord(walRecord);
     } break;
@@ -126,7 +125,7 @@ void WALReplayer::replayWALRecord(const WALRecord& walRecord) {
 void WALReplayer::replayCreateTableEntryRecord(const WALRecord& walRecord) const {
     auto& createTableEntryRecord = walRecord.constCast<CreateTableEntryRecord>();
     KU_ASSERT(clientContext.getCatalog());
-    auto tableID = clientContext.getCatalog()->createTableSchema(clientContext.getTx(),
+    const auto tableID = clientContext.getCatalog()->createTableSchema(clientContext.getTx(),
         createTableEntryRecord.boundCreateTableInfo);
     KU_ASSERT(clientContext.getStorageManager());
     clientContext.getStorageManager()->createTable(tableID, clientContext.getCatalog(),
@@ -354,10 +353,6 @@ void WALReplayer::replayRelUpdateRecord(const WALRecord& walRecord) const {
         *updateRecord.ownedRelIDVector, *updateRecord.ownedPropertyVector);
     KU_ASSERT(clientContext.getTx() && clientContext.getTx()->isRecovery());
     table.update(clientContext.getTx(), *updateState);
-}
-
-void WALReplayer::replayCopyTableRecord(const WALRecord&) const {
-    // DO NOTHING.
 }
 
 void WALReplayer::replayUpdateSequenceRecord(const WALRecord& walRecord) const {

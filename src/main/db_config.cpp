@@ -20,7 +20,10 @@ static ConfigurationOption options[] = { // NOLINT(cert-err58-cpp):
     GET_CONFIGURATION(ProgressBarSetting), GET_CONFIGURATION(ProgressBarTimerSetting),
     GET_CONFIGURATION(RecursivePatternSemanticSetting),
     GET_CONFIGURATION(RecursivePatternFactorSetting), GET_CONFIGURATION(EnableMVCCSetting),
-    GET_CONFIGURATION(CheckpointThresholdSetting), GET_CONFIGURATION(AutoCheckpointSetting)};
+    GET_CONFIGURATION(CheckpointThresholdSetting), GET_CONFIGURATION(AutoCheckpointSetting),
+    GET_CONFIGURATION(SkipFlushCheckpointRecordSetting),
+    GET_CONFIGURATION(SkipOverwriteWALVersionFilesSetting),
+    GET_CONFIGURATION(SkipReplayShadowSetting), GET_CONFIGURATION(SkipClearWALSetting)};
 
 DBConfig::DBConfig(const SystemConfig& systemConfig) {
     bufferPoolSize = systemConfig.bufferPoolSize;

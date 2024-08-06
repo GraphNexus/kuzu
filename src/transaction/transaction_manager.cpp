@@ -162,12 +162,28 @@ void TransactionManager::checkpointNoLock(main::ClientContext& clientContext) {
     // them with the original pages or catalog and metadata files.
     // If the system crashes before this point, the WAL can still be used to recover the system to a
     // state where the checkpoint can be redo.
+    if (clientContext.getDBConfig()->skipFlushCheckpointRecord) {
+        // Testing purposes only. Simulate a crash before flushing the checkpoint record.
+        return;
+    }
     wal.logAndFlushCheckpoint();
     // Replace the original pages and catalog and metadata files with the updated/newly-created
     // ones.
+    if (clientContext.getDBConfig()->skipOverwriteWALVersionFiles) {
+        // Testing purposes only. Simulate a crash before overwriting the WAL version files.
+        return;
+    }
     StorageUtils::overwriteWALVersionFiles(clientContext.getDatabasePath(),
         clientContext.getVFSUnsafe());
+    if (clientContext.getDBConfig()->skipReplayShadow) {
+        // Testing purposes only. Simulate a crash before shipping the replay shadow.
+        return;
+    }
     clientContext.getStorageManager()->getShadowFile().replayShadowPageRecords(clientContext);
+    if (clientContext.getDBConfig()->skipClearingWAL) {
+        // Testing purposes only. Simulate a crash before clearing the WAL and shadow files.
+        return;
+    }
     // Clear the wal, and also shadowing files.
     wal.clearWAL();
     clientContext.getStorageManager()->getShadowFile().clearAll(clientContext);

@@ -25,7 +25,6 @@ enum class WALRecordType : uint8_t {
     BEGIN_TRANSACTION_RECORD = 1,
     COMMIT_RECORD = 2,
     ROLLBACK_RECORD = 3,
-    COPY_TABLE_RECORD = 13,
     CREATE_CATALOG_ENTRY_RECORD = 14,
     CREATE_TABLE_CATALOG_ENTRY_RECORD = 15,
     DROP_CATALOG_ENTRY_RECORD = 16,
@@ -109,18 +108,6 @@ struct CreateCatalogEntryRecord final : WALRecord {
     void serialize(common::Serializer& serializer) const override;
     static std::unique_ptr<CreateCatalogEntryRecord> deserialize(
         common::Deserializer& deserializer);
-};
-
-struct CopyTableRecord final : WALRecord {
-    common::table_id_t tableID;
-
-    CopyTableRecord()
-        : WALRecord{WALRecordType::COPY_TABLE_RECORD}, tableID{common::INVALID_TABLE_ID} {}
-    explicit CopyTableRecord(common::table_id_t tableID)
-        : WALRecord{WALRecordType::COPY_TABLE_RECORD}, tableID{tableID} {}
-
-    void serialize(common::Serializer& serializer) const override;
-    static std::unique_ptr<CopyTableRecord> deserialize(common::Deserializer& deserializer);
 };
 
 struct DropCatalogEntryRecord final : WALRecord {

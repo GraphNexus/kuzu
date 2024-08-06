@@ -88,16 +88,16 @@ void StorageManager::loadTables(const Catalog& catalog, VirtualFileSystem* vfs,
 }
 
 void StorageManager::recover(main::ClientContext& clientContext) {
-    auto vfs = clientContext.getVFSUnsafe();
-    auto walFilePath =
+    const auto vfs = clientContext.getVFSUnsafe();
+    const auto walFilePath =
         vfs->joinPath(clientContext.getDatabasePath(), StorageConstants::WAL_FILE_SUFFIX);
     if (!vfs->fileOrPathExists(walFilePath, &clientContext)) {
+        shadowFile->clearAll(clientContext);
+        StorageUtils::removeWALVersionFiles(clientContext.getDatabasePath(), vfs);
         return;
     }
     try {
-        // TODO(Guodong): We should first check if there is CHECKPOINT record at the end.
-        // If so, we can skip replaying the WAL, instead directly replacing shadow files/pages.
-        auto walReplayer = std::make_unique<WALReplayer>(clientContext);
+        const auto walReplayer = std::make_unique<WALReplayer>(clientContext);
         walReplayer->replay();
     } catch (std::exception& e) {
         throw Exception(stringFormat("Error during recovery: {}", e.what()));

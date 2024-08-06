@@ -85,7 +85,7 @@ Database::Database(std::string_view databasePath, SystemConfig systemConfig)
     storageManager = std::make_unique<StorageManager>(this->databasePath, systemConfig.readOnly,
         *catalog, *memoryManager, systemConfig.enableCompression, vfs.get(), &clientContext);
     transactionManager = std::make_unique<TransactionManager>(storageManager->getWAL());
-    StorageManager::recover(clientContext);
+    storageManager->recover(clientContext);
     extensionOptions = std::make_unique<extension::ExtensionOptions>();
     databaseManager = std::make_unique<DatabaseManager>();
 }
@@ -115,7 +115,7 @@ void Database::addExtensionOption(std::string name, LogicalTypeID type, Value de
     extensionOptions->addExtensionOption(name, type, std::move(defaultValue));
 }
 
-ExtensionOption* Database::getExtensionOption(std::string name) {
+ExtensionOption* Database::getExtensionOption(std::string name) const {
     return extensionOptions->getExtensionOption(std::move(name));
 }
 
@@ -126,7 +126,7 @@ case_insensitive_map_t<std::unique_ptr<StorageExtension>>& Database::getStorageE
 void Database::openLockFile() {
     int flags;
     FileLockType lock;
-    auto lockFilePath = StorageUtils::getLockFilePath(vfs.get(), databasePath);
+    const auto lockFilePath = StorageUtils::getLockFilePath(vfs.get(), databasePath);
     if (!vfs->fileOrPathExists(lockFilePath)) {
         getLockFileFlagsAndType(dbConfig.readOnly, true, flags, lock);
     } else {

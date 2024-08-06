@@ -124,7 +124,7 @@ public:
 
     KUZU_API catalog::Catalog* getCatalog() { return catalog.get(); }
 
-    ExtensionOption* getExtensionOption(std::string name);
+    ExtensionOption* getExtensionOption(std::string name) const;
 
     const DBConfig& getConfig() const { return dbConfig; }
 

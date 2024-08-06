@@ -16,7 +16,7 @@ class ClientContext;
 struct SystemConfig;
 
 typedef void (*set_context)(ClientContext* context, const common::Value& parameter);
-typedef common::Value (*get_setting)(ClientContext* context);
+typedef common::Value (*get_setting)(const ClientContext* context);
 
 enum class OptionType : uint8_t { CONFIGURATION = 0, EXTENSION = 1 };
 
@@ -64,6 +64,12 @@ public:
     bool enableMultiWrites = false;
     bool autoCheckpoint;
     uint64_t checkpointThreshold;
+
+    // For checkpoint and recovery testing purposes only.
+    bool skipFlushCheckpointRecord = false;
+    bool skipOverwriteWALVersionFiles = false;
+    bool skipReplayShadow = false;
+    bool skipClearingWAL = false;
 };
 
 } // namespace main

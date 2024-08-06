@@ -22,7 +22,7 @@ public:
         MemoryManager& memoryManager, bool enableCompression, common::VirtualFileSystem* vfs,
         main::ClientContext* context);
 
-    static void recover(main::ClientContext& clientContext);
+    void recover(main::ClientContext& clientContext);
 
     void createTable(common::table_id_t tableID, catalog::Catalog* catalog,
         main::ClientContext* context);

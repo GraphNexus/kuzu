@@ -173,8 +173,6 @@ std::unique_ptr<ColumnChunkData> Column::flushNonNestedChunkData(const ColumnChu
 
 ColumnChunkMetadata Column::flushData(const ColumnChunkData& chunkData, BMFileHandle& dataFH) {
     KU_ASSERT(chunkData.sanityCheck());
-    // TODO(Guodong/Ben): We can optimize the flush to write back to same set of pages if new
-    // flushed data are not out of the capacity.
     const auto preScanMetadata = chunkData.getMetadataToFlush();
     const auto startPageIdx = dataFH.addNewPages(preScanMetadata.numPages);
     return chunkData.flushBuffer(&dataFH, startPageIdx, preScanMetadata);

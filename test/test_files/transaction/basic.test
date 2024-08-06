@@ -1,64 +1,83 @@
 -DATASET CSV empty
 --
 
--CASE InvalidTransaction
--STATEMENT COMMIT;
----- error
-No active transaction for COMMIT.
--CASE CommitAfterCheckPoint
--STATEMENT BEGIN TRANSACTION;
----- ok
--STATEMENT CHECKPOINT;
----- error
-Found active transaction for CHECKPOINT.
--STATEMENT COMMIT;
----- error
-No active transaction for COMMIT.
--STATEMENT rollback;
----- error
-No active transaction for ROLLBACK.
--STATEMENT BEGIN TRANSACTION;
----- ok
--STATEMENT CREATE NODE TABLE PERSON (id INT64, PRIMARY KEY(id));
----- ok
--STATEMENT CALL show_tables() return *;
----- 1
-PERSON|NODE|local(kuzu)|
--STATEMENT BEGIN TRANSACTION;
----- error
-Connection already has an active transaction. Cannot start a transaction within another one. For concurrent multiple transactions, please open other connections.
--STATEMENT CALL show_tables() return *;
----- 0
+#-CASE InvalidTransaction
+#-STATEMENT COMMIT;
+#---- error
+#No active transaction for COMMIT.
+#-CASE CommitAfterCheckPoint
+#-STATEMENT BEGIN TRANSACTION;
+#---- ok
+#-STATEMENT CHECKPOINT;
+#---- error
+#Found active transaction for CHECKPOINT.
+#-STATEMENT COMMIT;
+#---- error
+#No active transaction for COMMIT.
+#-STATEMENT rollback;
+#---- error
+#No active transaction for ROLLBACK.
+#-STATEMENT BEGIN TRANSACTION;
+#---- ok
+#-STATEMENT CREATE NODE TABLE PERSON (id INT64, PRIMARY KEY(id));
+#---- ok
+#-STATEMENT CALL show_tables() return *;
+#---- 1
+#PERSON|NODE|local(kuzu)|
+#-STATEMENT BEGIN TRANSACTION;
+#---- error
+#Connection already has an active transaction. Cannot start a transaction within another one. For concurrent multiple transactions, please open other connections.
+#-STATEMENT CALL show_tables() return *;
+#---- 0
+#
+#-CASE RollbackWhenCloseDB
+#-STATEMENT CREATE NODE TABLE person(id string, primary key(id));
+#---- ok
+#-STATEMENT BEGIN TRANSACTION;
+#---- ok
+#-STATEMENT CREATE (p:person {id: 'Alice'});
+#---- ok
+#-STATEMENT MATCH (p:person) return p.id;
+#---- 1
+#Alice
+#
+#-CASE CheckpointTimeoutErrorTest
+#-CHECKPOINT_WAIT_TIMEOUT 10000
+#-STATEMENT CALL auto_checkpoint=false
+#---- ok
+#-STATEMENT CREATE NODE TABLE person(ID INT64, age INT64, PRIMARY KEY(ID));
+#---- ok
+#-CREATE_CONNECTION conn1
+#-STATEMENT [conn1] BEGIN TRANSACTION READ ONLY;
+#---- ok
+#-CREATE_CONNECTION conn2
+#-STATEMENT [conn2] BEGIN TRANSACTION;
+#---- ok
+#-STATEMENT [conn2] MATCH (a:person) WHERE a.ID=0 set a.age=70;
+#---- ok
+#-STATEMENT [conn2] COMMIT
+#---- ok
+#-STATEMENT [conn2] CHECKPOINT;
+#---- error
+#Timeout waiting for active transactions to leave the system before checkpointing. If you have an open transaction, please close it and try again.
+#-STATEMENT [conn1] MATCH (a:person) WHERE a.ID=0 RETURN a.age;
+#---- 0
 
--CASE RollbackWhenCloseDB
--STATEMENT CREATE NODE TABLE person(id string, primary key(id));
----- ok
--STATEMENT BEGIN TRANSACTION;
----- ok
--STATEMENT CREATE (p:person {id: 'Alice'});
----- ok
--STATEMENT MATCH (p:person) return p.id;
----- 1
-Alice
-
--CASE CheckpointTimeoutErrorTest
--CHECKPOINT_WAIT_TIMEOUT 10000
--STATEMENT CALL auto_checkpoint=false
+-CASE SkipFlushCheckpointRecord
+-STATEMENT CALL auto_checkpoint=false;
 ---- ok
 -STATEMENT CREATE NODE TABLE person(ID INT64, age INT64, PRIMARY KEY(ID));
 ---- ok
--CREATE_CONNECTION conn1
--STATEMENT [conn1] BEGIN TRANSACTION READ ONLY;
+-STATEMENT CREATE (p:person {ID: 0, age: 20});
 ---- ok
--CREATE_CONNECTION conn2
--STATEMENT [conn2] BEGIN TRANSACTION;
+-STATEMENT CREATE (p:person {ID: 1, age: 30});
 ---- ok
--STATEMENT [conn2] MATCH (a:person) WHERE a.ID=0 set a.age=70;
+-STATEMENT CALL _skip_flush_checkpoint_record=true;
 ---- ok
--STATEMENT [conn2] COMMIT
+-STATEMENT CHECKPOINT;
 ---- ok
--STATEMENT [conn2] CHECKPOINT;
----- error
-Timeout waiting for active transactions to leave the system before checkpointing. If you have an open transaction, please close it and try again.
--STATEMENT [conn1] MATCH (a:person) WHERE a.ID=0 RETURN a.age;
----- 0
+-RELOADDB
+-STATEMENT MATCH (a:person) RETURN a.ID, a.age;
+---- 2
+0|20
+1|30

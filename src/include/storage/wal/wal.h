@@ -60,7 +60,6 @@ public:
     void logRelUpdate(common::table_id_t tableID, common::column_id_t columnID,
         common::ValueVector* srcNodeVector, common::ValueVector* dstNodeVector,
         common::ValueVector* relIDVector, common::ValueVector* propertyVector);
-    void logCopyTableRecord(common::table_id_t tableID);
 
     void logBeginTransaction();
     void logAndFlushCommit();

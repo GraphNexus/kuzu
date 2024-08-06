@@ -127,13 +127,6 @@ void WAL::logRelUpdate(table_id_t tableID, column_id_t columnID, ValueVector* sr
     addNewWALRecordNoLock(walRecord);
 }
 
-void WAL::logCopyTableRecord(table_id_t tableID) {
-    lock_t lck{mtx};
-    CopyTableRecord walRecord(tableID);
-    addToUpdatedTables(tableID);
-    addNewWALRecordNoLock(walRecord);
-}
-
 void WAL::logUpdateSequenceRecord(sequence_id_t sequenceID, uint64_t kCount) {
     lock_t lck{mtx};
     UpdateSequenceRecord walRecord(sequenceID, kCount);

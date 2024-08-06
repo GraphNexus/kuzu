@@ -65,9 +65,6 @@ std::unique_ptr<WALRecord> WALRecord::deserialize(Deserializer& deserializer,
     case WALRecordType::REL_UPDATE_RECORD: {
         walRecord = RelUpdateRecord::deserialize(deserializer, clientContext);
     } break;
-    case WALRecordType::COPY_TABLE_RECORD: {
-        walRecord = CopyTableRecord::deserialize(deserializer);
-    } break;
     case WALRecordType::CHECKPOINT_RECORD: {
         walRecord = CheckpointRecord::deserialize(deserializer);
     } break;
@@ -138,17 +135,6 @@ std::unique_ptr<CreateCatalogEntryRecord> CreateCatalogEntryRecord::deserialize(
     auto catalogEntry = catalog::CatalogEntry::deserialize(deserializer);
     auto retVal = std::make_unique<CreateCatalogEntryRecord>();
     retVal->ownedCatalogEntry = std::move(catalogEntry);
-    return retVal;
-}
-
-void CopyTableRecord::serialize(Serializer& serializer) const {
-    WALRecord::serialize(serializer);
-    serializer.write(tableID);
-}
-
-std::unique_ptr<CopyTableRecord> CopyTableRecord::deserialize(Deserializer& deserializer) {
-    auto retVal = std::make_unique<CopyTableRecord>();
-    deserializer.deserializeValue(retVal->tableID);
     return retVal;
 }
 
