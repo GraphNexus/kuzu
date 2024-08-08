@@ -1,5 +1,9 @@
 #include "storage/store/dictionary_column.h"
 
+#include <algorithm>
+#include <cstdint>
+#include <string>
+
 #include "storage/storage_structure/disk_array_collection.h"
 #include "storage/store/string_column.h"
 #include <bit>

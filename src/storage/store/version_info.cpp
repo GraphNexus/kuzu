@@ -1,5 +1,7 @@
 #include "storage/store/version_info.h"
 
+#include <algorithm>
+
 #include "common/exception/runtime.h"
 #include "storage/storage_utils.h"
 #include "transaction/transaction.h"
@@ -39,13 +41,13 @@ void VectorVersionInfo::getSelVectorForScan(const transaction_t startTS,
     if (deletionStatus == DeletionStatus::NO_DELETED &&
         insertionStatus == InsertionStatus::ALWAYS_INSERTED) {
         for (auto i = 0u; i < numRows; i++) {
-            selVector.getMultableBuffer()[numSelected++] = startOutputPos + i;
+            selVector.getMutableBuffer()[numSelected++] = startOutputPos + i;
         }
     } else if (insertionStatus != InsertionStatus::NO_INSERTED) {
         for (auto i = 0u; i < numRows; i++) {
             if (const auto rowIdx = startRow + i; isInserted(startTS, transactionID, rowIdx) &&
                                                   !isDeleted(startTS, transactionID, rowIdx)) {
-                selVector.getMultableBuffer()[numSelected++] = startOutputPos + i;
+                selVector.getMutableBuffer()[numSelected++] = startOutputPos + i;
             }
         }
     }
@@ -357,7 +359,7 @@ void VersionInfo::getSelVectorToScan(const transaction_t startTS, const transact
         if (!vectorVersion) {
             auto numSelected = selVector.getSelSize();
             for (auto i = 0u; i < numRowsInVector; i++) {
-                selVector.getMultableBuffer()[numSelected++] = outputPos + i;
+                selVector.getMutableBuffer()[numSelected++] = outputPos + i;
             }
             selVector.setToFiltered(numSelected);
         } else {

@@ -2,6 +2,7 @@
 
 #include "common/assert.h"
 #include "common/constants.h"
+#include "common/data_chunk/sel_vector.h"
 #include "common/types/internal_id_t.h"
 #include "storage/store/column.h"
 #include "storage/store/node_table.h"
@@ -111,13 +112,8 @@ uint64_t ChunkedNodeGroup::append(const Transaction* transaction,
         const auto chunk = chunks[i].get();
         KU_ASSERT(i < columnVectors.size());
         const auto columnVector = columnVectors[i];
-        // TODO(Guodong): Should add `slice` interface to SelVector.
-        SelectionVector selVector(numRowsToAppendInChunk);
-        for (auto row = 0u; row < numRowsToAppendInChunk; row++) {
-            selVector.getMultableBuffer()[row] =
-                columnVector->state->getSelVector()[startRowInVectors + row];
-        }
-        selVector.setToFiltered(numRowsToAppendInChunk);
+        SelectionVector selVector(columnVector->state->getSelVector(), startRowInVectors,
+            numRowsToAppendInChunk);
         chunk->getData().append(columnVector, selVector);
     }
     if (transaction->getID() != Transaction::DUMMY_TRANSACTION_ID) {
@@ -187,19 +183,13 @@ void ChunkedNodeGroup::scan(const Transaction* transaction, const TableScanState
     length_t numRowsToScan) const {
     KU_ASSERT(rowIdxInGroup + numRowsToScan <= numRows);
     bool hasValuesToScan = true;
-    std::unique_ptr<SelectionVector> selVector = nullptr;
-    if (versionInfo) {
-        selVector = std::make_unique<SelectionVector>(DEFAULT_VECTOR_CAPACITY);
-        versionInfo->getSelVectorToScan(transaction->getStartTS(), transaction->getID(), *selVector,
-            rowIdxInGroup, numRowsToScan);
-        hasValuesToScan = selVector->getSelSize() > 0;
-    }
     auto& anchorSelVector = scanState.IDVector->state->getSelVectorUnsafe();
-    if (selVector && selVector->getSelSize() != numRowsToScan) {
-        std::memcpy(anchorSelVector.getMultableBuffer().data(),
-            selVector->getMultableBuffer().data(), selVector->getSelSize() * sizeof(sel_t));
-        anchorSelVector.setToFiltered(selVector->getSelSize());
-    } else {
+    if (versionInfo) {
+        versionInfo->getSelVectorToScan(transaction->getStartTS(), transaction->getID(),
+            anchorSelVector, rowIdxInGroup, numRowsToScan);
+        hasValuesToScan = anchorSelVector.getSelSize() > 0;
+    }
+    if (!versionInfo || anchorSelVector.getSelSize() == numRowsToScan) {
         anchorSelVector.setToUnfiltered(numRowsToScan);
     }
     if (hasValuesToScan) {
