@@ -105,9 +105,19 @@ bool ScanNodeTable::getNextTuplesInternal(ExecutionContext* context) {
     while (currentTableIdx < nodeInfos.size()) {
         const auto& info = nodeInfos[currentTableIdx];
         auto& scanState = *info.localScanState;
+        // TODO (ANURAG): This code has been changed, not sure how this Zone Map thing is impacted.
         auto skipScan =
             transaction->isReadOnly() && scanState.zoneMapResult == ZoneMapCheckResult::SKIP_SCAN;
         if (!skipScan) {
+            sharedStates[currentTableIdx]->nextMorsel(transaction, scanState);
+            if (scanState.source != TableScanSource::NONE &&
+                info.table->scan(transaction, scanState)) {
+                if (scanState.nodeIDVector->state->getSelVector().getSelSize() > 0) {
+                    return true;
+                }
+            }
+            currentTableIdx++;
+        } else {
             sharedStates[currentTableIdx]->nextMorsel(transaction, scanState);
             if (scanState.source != TableScanSource::NONE &&
                 info.table->scan(transaction, scanState)) {
