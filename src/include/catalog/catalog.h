@@ -87,7 +87,7 @@ public:
     common::table_id_set_t getBwdRelTableIDs(transaction::Transaction* transaction,
         common::table_id_t nodeTableID) const;
 
-    common::table_id_t createTableSchema(transaction::Transaction* transaction,
+    common::table_id_t createTableEntry(transaction::Transaction* transaction,
         const binder::BoundCreateTableInfo& info);
     void dropTableEntry(transaction::Transaction* transaction, std::string name);
     void dropTableEntry(transaction::Transaction* transaction, common::table_id_t tableID);
@@ -174,18 +174,17 @@ private:
         return result;
     }
 
-    std::vector<common::table_id_t> getTableIDs(transaction::Transaction* transaction,
-        CatalogEntryType catalogType) const;
-
     void alterRdfChildTableEntries(transaction::Transaction* transaction, CatalogEntry* entry,
         const binder::BoundAlterInfo& info) const;
-    std::unique_ptr<CatalogEntry> createNodeTableEntry(transaction::Transaction* transaction,
+    std::unique_ptr<TableCatalogEntry> createNodeTableEntry(transaction::Transaction* transaction,
         common::table_id_t tableID, const binder::BoundCreateTableInfo& info) const;
-    std::unique_ptr<CatalogEntry> createRelTableEntry(transaction::Transaction* transaction,
+    std::unique_ptr<TableCatalogEntry> createExternalNodeTableEntry(transaction::Transaction* transaction,
         common::table_id_t tableID, const binder::BoundCreateTableInfo& info) const;
-    std::unique_ptr<CatalogEntry> createRelTableGroupEntry(transaction::Transaction* transaction,
+    std::unique_ptr<TableCatalogEntry> createRelTableEntry(transaction::Transaction* transaction,
+        common::table_id_t tableID, const binder::BoundCreateTableInfo& info) const;
+    std::unique_ptr<TableCatalogEntry> createRelTableGroupEntry(transaction::Transaction* transaction,
         common::table_id_t tableID, const binder::BoundCreateTableInfo& info);
-    std::unique_ptr<CatalogEntry> createRdfGraphEntry(transaction::Transaction* transaction,
+    std::unique_ptr<TableCatalogEntry> createRdfGraphEntry(transaction::Transaction* transaction,
         common::table_id_t tableID, const binder::BoundCreateTableInfo& info);
 
     // ----------------------------- Sequence entries ----------------------------

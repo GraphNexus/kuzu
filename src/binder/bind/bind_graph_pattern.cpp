@@ -14,6 +14,7 @@
 #include "common/string_format.h"
 #include "function/cast/functions/cast_from_string_functions.h"
 #include "main/client_context.h"
+#include "common/distinct_vector.h"
 
 using namespace kuzu::common;
 using namespace kuzu::parser;
@@ -124,18 +125,13 @@ std::shared_ptr<Expression> Binder::createPath(const std::string& pathName,
 }
 
 static std::vector<std::string> getPropertyNames(const std::vector<TableCatalogEntry*>& entries) {
-    std::vector<std::string> result;
-    std::unordered_set<std::string> propertyNamesSet;
+    auto distinctVector = DistinctVector<std::string>();
     for (auto& entry : entries) {
         for (auto& property : entry->getProperties()) {
-            if (propertyNamesSet.contains(property.getName())) {
-                continue;
-            }
-            propertyNamesSet.insert(property.getName());
-            result.push_back(property.getName());
+            distinctVector.add(property.getName());
         }
     }
-    return result;
+    return distinctVector.values;
 }
 
 static std::unique_ptr<Expression> createPropertyExpression(const std::string& propertyName,
@@ -686,7 +682,8 @@ std::vector<TableCatalogEntry*> Binder::getTableEntries(
 
 std::vector<TableCatalogEntry*> Binder::getNodeTableEntries(TableCatalogEntry* entry) const {
     switch (entry->getTableType()) {
-    case TableType::NODE: {
+    case TableType::NODE:
+    case TableType::EXTERNAL_NODE: {
         return {entry};
     }
     default:

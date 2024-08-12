@@ -123,19 +123,6 @@ std::unique_ptr<BoundBaseScanSource> Binder::bindQueryScanSource(const BaseScanS
     return std::make_unique<BoundQueryScanSource>(std::move(boundStatement));
 }
 
-static TableFunction getObjectScanFunc(const std::string& dbName, const std::string& tableName,
-    main::ClientContext* clientContext) {
-    // Bind external database table
-    auto attachedDB = clientContext->getDatabaseManager()->getAttachedDatabase(dbName);
-    if (attachedDB == nullptr) {
-        throw BinderException{stringFormat("No database named {} has been attached.", dbName)};
-    }
-    auto attachedCatalog = attachedDB->getCatalog();
-    auto tableID = attachedCatalog->getTableID(clientContext->getTx(), tableName);
-    auto entry = attachedCatalog->getTableCatalogEntry(clientContext->getTx(), tableID);
-    return entry->ptrCast<TableCatalogEntry>()->getScanFunction();
-}
-
 std::unique_ptr<BoundBaseScanSource> Binder::bindObjectScanSource(const BaseScanSource& scanSource,
     const std::vector<std::string>& columnNames,
     const std::vector<common::LogicalType>& columnTypes) {
@@ -152,7 +139,9 @@ std::unique_ptr<BoundBaseScanSource> Binder::bindObjectScanSource(const BaseScan
             bindData = func.bindFunc(clientContext, &replacementData->bindInput);
         } else if (clientContext->getDatabaseManager()->hasDefaultDatabase()) {
             auto dbName = clientContext->getDatabaseManager()->getDefaultDatabase();
-            func = getObjectScanFunc(dbName, objectSource->objectNames[0], clientContext);
+            auto tableName = objectSource->objectNames[0];
+            auto entry = bindExternalTableEntry(dbName, tableName);
+            func = entry->getScanFunction();
             auto bindInput = function::TableFuncBindInput();
             bindData = func.bindFunc(clientContext, &bindInput);
         } else {
@@ -160,9 +149,11 @@ std::unique_ptr<BoundBaseScanSource> Binder::bindObjectScanSource(const BaseScan
         }
     } else if (objectSource->objectNames.size() == 2) {
         // Bind external database table
-        objectName = objectSource->objectNames[0] + "." + objectSource->objectNames[1];
-        func = getObjectScanFunc(objectSource->objectNames[0], objectSource->objectNames[1],
-            clientContext);
+        auto dbName = objectSource->objectNames[0];
+        auto tableName = objectSource->objectNames[1];
+        objectName = dbName + "." + tableName;
+        auto entry = bindExternalTableEntry(dbName, tableName);
+        func = entry->getScanFunction();
         auto bindInput = function::TableFuncBindInput();
         bindData = func.bindFunc(clientContext, &bindInput);
     } else {
