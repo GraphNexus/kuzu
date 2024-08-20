@@ -9,7 +9,7 @@
 namespace kuzu {
 namespace common {
 
-void NullMask::setNull(uint64_t* nullEntries, uint32_t pos, bool isNull) {
+void NullMask::setNull(uint64_t* nullEntries, uint64_t pos, bool isNull) {
     auto entryPos = pos >> NUM_BITS_PER_NULL_ENTRY_LOG2;
     auto bitPosInEntry = pos - (entryPos << NUM_BITS_PER_NULL_ENTRY_LOG2);
     if (isNull) {
@@ -203,7 +203,7 @@ std::pair<bool, bool> NullMask::getMinMax(const uint64_t* nullEntries, uint64_t 
         }
     } else {
         // First word will be handled in loop below
-        min = max = NullMask::isNull(nullEntries, 0);
+        min = max = isNull(nullEntries, 0);
     }
     for (size_t i = 0; i < numValues / 64; i++) {
         if (nullEntries[i] != firstWord) {
@@ -211,7 +211,7 @@ std::pair<bool, bool> NullMask::getMinMax(const uint64_t* nullEntries, uint64_t 
         }
     }
     for (size_t i = numValues / 64 * 64; i < numValues; i++) {
-        if (min != NullMask::isNull(nullEntries, i)) {
+        if (min != isNull(nullEntries, i)) {
             return std::make_pair(false, true);
         }
     }

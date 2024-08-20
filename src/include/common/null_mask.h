@@ -39,7 +39,7 @@ constexpr uint64_t NULL_BITMASKS_WITH_SINGLE_ZERO[64] = {0xfffffffffffffffe, 0xf
     0xfbffffffffffffff, 0xf7ffffffffffffff, 0xefffffffffffffff, 0xdfffffffffffffff,
     0xbfffffffffffffff, 0x7fffffffffffffff};
 
-const uint64_t NULL_LOWER_MASKS[65] = {0x0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff,
+constexpr uint64_t NULL_LOWER_MASKS[65] = {0x0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f, 0xff, 0x1ff,
     0x3ff, 0x7ff, 0xfff, 0x1fff, 0x3fff, 0x7fff, 0xffff, 0x1ffff, 0x3ffff, 0x7ffff, 0xfffff,
     0x1fffff, 0x3fffff, 0x7fffff, 0xffffff, 0x1ffffff, 0x3ffffff, 0x7ffffff, 0xfffffff, 0x1fffffff,
     0x3fffffff, 0x7fffffff, 0xffffffff, 0x1ffffffff, 0x3ffffffff, 0x7ffffffff, 0xfffffffff,
@@ -49,7 +49,7 @@ const uint64_t NULL_LOWER_MASKS[65] = {0x0, 0x1, 0x3, 0x7, 0xf, 0x1f, 0x3f, 0x7f
     0x3fffffffffffff, 0x7fffffffffffff, 0xffffffffffffff, 0x1ffffffffffffff, 0x3ffffffffffffff,
     0x7ffffffffffffff, 0xfffffffffffffff, 0x1fffffffffffffff, 0x3fffffffffffffff,
     0x7fffffffffffffff, 0xffffffffffffffff};
-const uint64_t NULL_HIGH_MASKS[65] = {0x0, 0x8000000000000000, 0xc000000000000000,
+constexpr uint64_t NULL_HIGH_MASKS[65] = {0x0, 0x8000000000000000, 0xc000000000000000,
     0xe000000000000000, 0xf000000000000000, 0xf800000000000000, 0xfc00000000000000,
     0xfe00000000000000, 0xff00000000000000, 0xff80000000000000, 0xffc0000000000000,
     0xffe0000000000000, 0xfff0000000000000, 0xfff8000000000000, 0xfffc000000000000,
@@ -70,14 +70,16 @@ const uint64_t NULL_HIGH_MASKS[65] = {0x0, 0x8000000000000000, 0xc00000000000000
 class NullMask {
 public:
     static constexpr uint64_t NO_NULL_ENTRY = 0;
-    static constexpr uint64_t ALL_NULL_ENTRY = ~uint64_t(NO_NULL_ENTRY);
+    static constexpr uint64_t ALL_NULL_ENTRY = ~static_cast<uint64_t>(NO_NULL_ENTRY);
     static constexpr uint64_t NUM_BITS_PER_NULL_ENTRY_LOG2 = 6;
-    static constexpr uint64_t NUM_BITS_PER_NULL_ENTRY = (uint64_t)1 << NUM_BITS_PER_NULL_ENTRY_LOG2;
+    static constexpr uint64_t NUM_BITS_PER_NULL_ENTRY = static_cast<uint64_t>(1)
+                                                        << NUM_BITS_PER_NULL_ENTRY_LOG2;
     static constexpr uint64_t NUM_BYTES_PER_NULL_ENTRY = NUM_BITS_PER_NULL_ENTRY >> 3;
 
     // For creating a managed null mask
     explicit NullMask(uint64_t capacity) : mayContainNulls{false} {
-        auto numNullEntries = (capacity + NUM_BITS_PER_NULL_ENTRY - 1) / NUM_BITS_PER_NULL_ENTRY;
+        const auto numNullEntries =
+            (capacity + NUM_BITS_PER_NULL_ENTRY - 1) / NUM_BITS_PER_NULL_ENTRY;
         buffer = std::make_unique<uint64_t[]>(numNullEntries);
         data = std::span(buffer.get(), numNullEntries);
         std::fill(data.begin(), data.end(), NO_NULL_ENTRY);
@@ -101,20 +103,20 @@ public:
 
     inline bool hasNoNullsGuarantee() const { return !mayContainNulls; }
 
-    static void setNull(uint64_t* nullEntries, uint32_t pos, bool isNull);
-    inline void setNull(uint32_t pos, bool isNull) {
+    static void setNull(uint64_t* nullEntries, uint64_t pos, bool isNull);
+    inline void setNull(uint64_t pos, bool isNull) {
         setNull(data.data(), pos, isNull);
         if (isNull) {
             mayContainNulls = true;
         }
     }
 
-    static inline bool isNull(const uint64_t* nullEntries, uint32_t pos) {
+    static inline bool isNull(const uint64_t* nullEntries, uint64_t pos) {
         auto [entryPos, bitPosInEntry] = getNullEntryAndBitPos(pos);
         return nullEntries[entryPos] & NULL_BITMASKS_WITH_SINGLE_ONE[bitPosInEntry];
     }
 
-    inline bool isNull(uint32_t pos) const { return isNull(data.data(), pos); }
+    inline bool isNull(uint64_t pos) const { return isNull(data.data(), pos); }
 
     // const because updates to the data must set mayContainNulls if any value
     // becomes non-null
@@ -165,8 +167,7 @@ public:
 private:
     static inline std::pair<uint64_t, uint64_t> getNullEntryAndBitPos(uint64_t pos) {
         auto nullEntryPos = pos >> NUM_BITS_PER_NULL_ENTRY_LOG2;
-        return std::make_pair(nullEntryPos,
-            pos - (nullEntryPos << NullMask::NUM_BITS_PER_NULL_ENTRY_LOG2));
+        return std::make_pair(nullEntryPos, pos - (nullEntryPos << NUM_BITS_PER_NULL_ENTRY_LOG2));
     }
 
     static bool copyUnaligned(const uint64_t* srcNullEntries, uint64_t srcOffset,
