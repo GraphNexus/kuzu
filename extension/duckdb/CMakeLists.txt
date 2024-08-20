@@ -5,7 +5,10 @@ if(${ENABLE_ADDRESS_SANITIZER})
 else()
         set(DuckDB_USE_STATIC_LIBS ON)
 endif()
+
+set(CMAKE_FIND_DEBUG_MODE ON)
 find_package(DuckDB REQUIRED)
+set(CMAKE_FIND_DEBUG_MODE OFF)
 
 include_directories(
         ${PROJECT_SOURCE_DIR}/src/include
