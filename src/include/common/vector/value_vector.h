@@ -39,12 +39,12 @@ public:
     void setAllNonNull() { nullMask.setAllNonNull(); }
     // On return true, there are no null. On return false, there may or may not be nulls.
     bool hasNoNullsGuarantee() const { return nullMask.hasNoNullsGuarantee(); }
-    void setNullRange(uint32_t startPos, uint32_t len, bool value) {
+    void setNullRange(uint64_t startPos, uint64_t len, bool value) {
         nullMask.setNullFromRange(startPos, len, value);
     }
     const NullMask& getNullMask() const { return nullMask; }
-    void setNull(uint32_t pos, bool isNull);
-    uint8_t isNull(uint32_t pos) const { return nullMask.isNull(pos); }
+    void setNull(uint64_t pos, bool isNull);
+    uint8_t isNull(uint64_t pos) const { return nullMask.isNull(pos); }
     void setAsSingleNullEntry() {
         state->getSelVectorUnsafe().setSelSize(1);
         setNull(state->getSelVector()[0], true);

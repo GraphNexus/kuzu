@@ -433,7 +433,7 @@ void ValueVector::setValue(uint32_t pos, std::string_view val) {
     StringVector::addString(this, pos, val.data(), val.length());
 }
 
-void ValueVector::setNull(uint32_t pos, bool isNull) {
+void ValueVector::setNull(uint64_t pos, bool isNull) {
     nullMask.setNull(pos, isNull);
 }
 
