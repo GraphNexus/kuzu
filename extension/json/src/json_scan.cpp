@@ -177,8 +177,7 @@ struct JsonScanSharedState : public BaseScanSharedState {
 };
 
 static std::unique_ptr<TableFuncBindData> bindFunc(main::ClientContext* ctx,
-    TableFuncBindInput* input) {
-    auto scanInput = input->constPtrCast<ScanTableFuncBindInput>();
+    ScanTableFuncBindInput* scanInput) {
     // get parameters
     JsonScanConfig scanConfig(scanInput->config.options);
     auto parsedJson = fileToJson(ctx, scanInput->inputs[0].strVal, scanConfig.format);
@@ -193,7 +192,8 @@ static std::unique_ptr<TableFuncBindData> bindFunc(main::ClientContext* ctx,
         if (scanConfig.depth == -1 || scanConfig.depth > 3) {
             scanConfig.depth = 3;
         }
-        auto schema = jsonSchema(parsedJson, scanConfig.depth, scanConfig.breadth);
+        auto schema = LogicalTypeUtils::purgeAny(
+            jsonSchema(parsedJson, scanConfig.depth, scanConfig.breadth), LogicalType::STRING());
         if (schema.getLogicalTypeID() == LogicalTypeID::LIST) {
             schema = ListType::getChildType(schema).copy();
             scanFromList = true;
@@ -202,7 +202,8 @@ static std::unique_ptr<TableFuncBindData> bindFunc(main::ClientContext* ctx,
             scanFromStruct = true;
         }
     } else {
-        auto schema = jsonSchema(parsedJson, scanConfig.depth, scanConfig.breadth);
+        auto schema = LogicalTypeUtils::purgeAny(
+            jsonSchema(parsedJson, scanConfig.depth, scanConfig.breadth), LogicalType::STRING());
         if (schema.getLogicalTypeID() == LogicalTypeID::LIST) {
             schema = ListType::getChildType(schema).copy();
             scanFromList = true;

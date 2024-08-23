@@ -2,7 +2,6 @@
 
 #include <cstdint>
 
-#include "common/copier_config/csv_reader_config.h"
 #include "common/data_chunk/data_chunk.h"
 #include "function/table/bind_input.h"
 
@@ -24,7 +23,7 @@ public:
     virtual ~ParsingDriver() = default;
 
     bool done(uint64_t rowNum);
-    void addValue(uint64_t rowNum, common::column_id_t columnIdx, std::string_view value);
+    bool addValue(uint64_t rowNum, common::column_id_t columnIdx, std::string_view value);
     bool addRow(uint64_t rowNum, common::column_id_t columnCount);
 
 private:
@@ -62,16 +61,13 @@ private:
 struct SniffCSVNameAndTypeDriver {
     std::vector<std::pair<std::string, common::LogicalType>> columns;
     std::vector<bool> sniffType;
-    main::ClientContext* context;
-    common::CSVOption csvOptions;
     // if the type isn't declared in the header, sniff it
     SerialCSVReader* reader;
 
-    explicit SniffCSVNameAndTypeDriver(main::ClientContext* context,
-        const common::CSVOption& csvOptions, SerialCSVReader* reader,
+    SniffCSVNameAndTypeDriver(SerialCSVReader* reader,
         const function::ScanTableFuncBindInput* bindInput);
     bool done(uint64_t rowNum) const;
-    void addValue(uint64_t rowNum, common::column_id_t columnIdx, std::string_view value);
+    bool addValue(uint64_t rowNum, common::column_id_t columnIdx, std::string_view value);
     bool addRow(uint64_t rowNum, common::column_id_t columntCount);
 };
 
