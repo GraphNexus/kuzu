@@ -424,7 +424,9 @@ void ChunkedNodeGroup::rollbackInsert(row_idx_t startRow, row_idx_t numRows_) {
 
 void ChunkedNodeGroup::commitDelete(row_idx_t startRow, row_idx_t numRows_,
     transaction_t commitTS) {
-    versionInfo->commitDelete(startRow, numRows_, commitTS);
+    if (versionInfo) {
+        versionInfo->commitDelete(startRow, numRows_, commitTS);
+    }
 }
 
 void ChunkedNodeGroup::rollbackDelete(row_idx_t startRow, row_idx_t numRows_) {

@@ -3,6 +3,7 @@
 #include "common/enums/rel_direction.h"
 #include "processor/operator/partitioner.h"
 #include "processor/operator/persistent/batch_insert.h"
+#include "processor/operator/persistent/batch_insert_error_handler.h"
 
 namespace kuzu {
 namespace storage {
@@ -60,6 +61,7 @@ struct RelBatchInsertInfo final : BatchInsertInfo {
 struct RelBatchInsertLocalState final : BatchInsertLocalState {
     common::partition_idx_t nodeGroupIdx = common::INVALID_NODE_GROUP_IDX;
     std::unique_ptr<common::DataChunk> dummyAllNullDataChunk;
+    std::unique_ptr<BatchInsertErrorHandler> errorHandler;
 };
 
 class RelBatchInsert final : public BatchInsert {
@@ -88,24 +90,27 @@ public:
 private:
     static void appendNodeGroup(transaction::Transaction* transaction,
         storage::CSRNodeGroup& nodeGroup, const RelBatchInsertInfo& relInfo,
-        const RelBatchInsertLocalState& localState, BatchInsertSharedState& sharedState,
+        RelBatchInsertLocalState& localState, BatchInsertSharedState& sharedState,
         const PartitionerSharedState& partitionerSharedState);
 
-    static void populateCSRHeaderAndRowIdx(storage::InMemChunkedNodeGroupCollection& partition,
-        common::offset_t startNodeOffset, const RelBatchInsertInfo& relInfo,
-        const RelBatchInsertLocalState& localState, common::offset_t numNodes, bool leaveGaps);
+    static void populateCSRHeaderAndRowIdx(const transaction::Transaction* transaction,
+        storage::InMemChunkedNodeGroupCollection& partition, common::offset_t startNodeOffset,
+        const RelBatchInsertInfo& relInfo, RelBatchInsertLocalState& localState,
+        common::offset_t numNodes, bool leaveGaps);
 
-    static void populateCSRLengths(const storage::ChunkedCSRHeader& csrHeader,
-        common::offset_t numNodes, storage::InMemChunkedNodeGroupCollection& partition,
-        common::column_id_t boundNodeOffsetColumn);
+    static void populateCSRLengths(const transaction::Transaction* transaction,
+        const storage::ChunkedCSRHeader& csrHeader, common::offset_t numNodes,
+        common::offset_t startNodeOffset, storage::InMemChunkedNodeGroupCollection& partition,
+        const RelBatchInsertInfo& relInfo, BatchInsertErrorHandler& errorHandler);
 
     static void setOffsetToWithinNodeGroup(storage::ColumnChunkData& chunk,
         common::offset_t startOffset);
-    static void setRowIdxFromCSROffsets(storage::ColumnChunkData& rowIdxChunk,
-        storage::ColumnChunkData& csrOffsetChunk);
+    static void setRowIdxFromCSROffsets(const transaction::Transaction* transaction,
+        storage::ColumnChunkData& rowIdxChunk, storage::ColumnChunkData& csrOffsetChunk,
+        storage::ChunkedNodeGroup& nodeGroup);
 
-    static void checkRelMultiplicityConstraint(const storage::ChunkedCSRHeader& csrHeader,
-        common::offset_t startNodeOffset, const RelBatchInsertInfo& relInfo);
+    static bool checkRelMultiplicityConstraint(const storage::ChunkedCSRHeader& csrHeader,
+        common::offset_t chunkOffset);
 
 private:
     std::shared_ptr<PartitionerSharedState> partitionerSharedState;
