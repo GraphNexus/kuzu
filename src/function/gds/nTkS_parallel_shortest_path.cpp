@@ -56,11 +56,6 @@ public:
         bindData = std::make_unique<ParallelShortestPathBindData>(inputNode, upperBound);
     }
 
-    void initLocalState(main::ClientContext* context) override {
-        localState = std::make_unique<ParallelShortestPathLocalState>();
-        localState->init(context);
-    }
-
     static std::pair<uint64_t, uint64_t> visitNbrs(IFEMorsel* ifeMorsel,
         ValueVector& dstNodeIDVector) {
         uint64_t numDstVisitedLocal = 0u, numNonDstVisitedLocal = 0u;
