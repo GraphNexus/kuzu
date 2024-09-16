@@ -14,6 +14,13 @@ class MemoryManager;
 
 namespace processor {
 
+struct RelMultiplicityError {
+    common::nodeID_t srcNode;
+    common::nodeID_t dstNode;
+    common::nodeID_t relNode;
+    common::row_idx_t rowIdx;
+};
+
 struct RelBatchInsertPrintInfo final : OPPrintInfo {
     std::string tableName;
 
@@ -93,21 +100,21 @@ private:
         RelBatchInsertLocalState& localState, BatchInsertSharedState& sharedState,
         const PartitionerSharedState& partitionerSharedState);
 
-    static void populateCSRHeaderAndRowIdx(const transaction::Transaction* transaction,
+    static std::vector<common::row_idx_t> populateCSRHeaderAndRowIdx(
         storage::InMemChunkedNodeGroupCollection& partition, common::offset_t startNodeOffset,
         const RelBatchInsertInfo& relInfo, RelBatchInsertLocalState& localState,
         common::offset_t numNodes, bool leaveGaps);
 
-    static void populateCSRLengths(const transaction::Transaction* transaction,
+    static std::vector<common::row_idx_t> populateCSRLengths(
         const storage::ChunkedCSRHeader& csrHeader, common::offset_t numNodes,
         common::offset_t startNodeOffset, storage::InMemChunkedNodeGroupCollection& partition,
         const RelBatchInsertInfo& relInfo, BatchInsertErrorHandler& errorHandler);
 
     static void setOffsetToWithinNodeGroup(storage::ColumnChunkData& chunk,
         common::offset_t startOffset);
-    static void setRowIdxFromCSROffsets(const transaction::Transaction* transaction,
-        storage::ColumnChunkData& rowIdxChunk, storage::ColumnChunkData& csrOffsetChunk,
-        storage::ChunkedNodeGroup& nodeGroup);
+    static void setRowIdxFromCSROffsets(storage::ColumnChunkData& rowIdxChunk,
+        storage::ColumnChunkData& csrOffsetChunk,
+        const std::vector<common::row_idx_t>& erroneousRows);
 
     static bool checkRelMultiplicityConstraint(const storage::ChunkedCSRHeader& csrHeader,
         common::offset_t chunkOffset);

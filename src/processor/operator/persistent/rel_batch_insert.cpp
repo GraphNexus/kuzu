@@ -66,6 +66,7 @@ void RelBatchInsert::executeInternal(ExecutionContext* context) {
         appendNodeGroup(context->clientContext->getTx(), nodeGroup, *relInfo, *relLocalState,
             *sharedState, *partitionerSharedState);
     }
+    relLocalState->errorHandler->flushStoredErrors();
 }
 
 void RelBatchInsert::appendNodeGroup(transaction::Transaction* transaction, CSRNodeGroup& nodeGroup,
@@ -88,8 +89,8 @@ void RelBatchInsert::appendNodeGroup(transaction::Transaction* transaction, CSRN
     // We optimistically flush new node group directly to disk in gapped CSR format.
     // There is no benefit of leaving gaps for existing node groups, which is kept in memory.
     const auto leaveGaps = isNewNodeGroup;
-    populateCSRHeaderAndRowIdx(transaction, partitioningBuffer, startNodeOffset, relInfo,
-        localState, numNodes, leaveGaps);
+    const auto erroneousRows = populateCSRHeaderAndRowIdx(partitioningBuffer, startNodeOffset,
+        relInfo, localState, numNodes, leaveGaps);
     const auto& csrHeader = localState.chunkedGroup->cast<ChunkedCSRNodeGroup>().getCSRHeader();
     const auto maxSize = csrHeader.getEndCSROffset(numNodes - 1);
     for (auto& chunkedGroup : partitioningBuffer.getChunkedGroups()) {
@@ -97,7 +98,6 @@ void RelBatchInsert::appendNodeGroup(transaction::Transaction* transaction, CSRN
             chunkedGroup->getNumRows() -
             chunkedGroup->getNumDeletions(transaction, 0, chunkedGroup->getNumRows()));
         localState.chunkedGroup->write(*chunkedGroup, relInfo.boundNodeOffsetColumnID);
-        chunkedGroup->commitDelete(0, chunkedGroup->getNumRows(), transaction->getCommitTS());
     }
     // Reset num of rows in the chunked group to fill gaps at the end of the node group.
     auto numGapsAtEnd = maxSize - localState.chunkedGroup->getNumRows();
@@ -116,18 +116,26 @@ void RelBatchInsert::appendNodeGroup(transaction::Transaction* transaction, CSRN
     }
     KU_ASSERT(localState.chunkedGroup->getNumRows() == maxSize);
     localState.chunkedGroup->finalize();
+    // only write the output data to the rel table
+    ChunkedCSRNodeGroup sliceToWriteToDisk(localState.chunkedGroup->cast<ChunkedCSRNodeGroup>(),
+        relInfo.outputDataColumns);
     if (isNewNodeGroup) {
-        auto flushedChunkedGroup = localState.chunkedGroup->flushAsNewChunkedNodeGroup(transaction,
+        auto flushedChunkedGroup = sliceToWriteToDisk.flushAsNewChunkedNodeGroup(transaction,
             *sharedState.table->getDataFH());
         nodeGroup.setPersistentChunkedGroup(std::move(flushedChunkedGroup));
     } else {
-        nodeGroup.appendChunkedCSRGroup(transaction,
-            localState.chunkedGroup->cast<ChunkedCSRNodeGroup>());
+        nodeGroup.appendChunkedCSRGroup(transaction, sliceToWriteToDisk);
     }
+    localState.chunkedGroup->merge(sliceToWriteToDisk, relInfo.outputDataColumns);
+
+    for (row_idx_t erroneousRow : erroneousRows) {
+        nodeGroup.delete_(transaction, CSRNodeGroupScanSource::UNCOMMITTED, erroneousRow);
+    }
+
     localState.chunkedGroup->resetToEmpty();
 }
 
-void RelBatchInsert::populateCSRHeaderAndRowIdx(const transaction::Transaction* transaction,
+std::vector<row_idx_t> RelBatchInsert::populateCSRHeaderAndRowIdx(
     InMemChunkedNodeGroupCollection& partition, offset_t startNodeOffset,
     const RelBatchInsertInfo& relInfo, RelBatchInsertLocalState& localState, offset_t numNodes,
     bool leaveGaps) {
@@ -135,8 +143,8 @@ void RelBatchInsert::populateCSRHeaderAndRowIdx(const transaction::Transaction* 
     auto& csrHeader = csrNodeGroup.getCSRHeader();
     csrHeader.setNumValues(numNodes);
     // Populate lengths for each node and check multiplicity constraint.
-    populateCSRLengths(transaction, csrHeader, numNodes, startNodeOffset, partition, relInfo,
-        *localState.errorHandler);
+    auto erroneousRows = populateCSRLengths(csrHeader, numNodes, startNodeOffset, partition,
+        relInfo, *localState.errorHandler);
     const auto rightCSROffsetOfRegions = csrHeader.populateStartCSROffsetsFromLength(leaveGaps);
     // Resize csr data column chunks.
     const auto csrChunkCapacity = rightCSROffsetOfRegions.back() + 1;
@@ -146,17 +154,47 @@ void RelBatchInsert::populateCSRHeaderAndRowIdx(const transaction::Transaction* 
     for (auto& chunkedGroup : partition.getChunkedGroups()) {
         auto& offsetChunk = chunkedGroup->getColumnChunk(relInfo.boundNodeOffsetColumnID);
         // We reuse bound node offset column to store row idx for each rel in the node group.
-        setRowIdxFromCSROffsets(transaction, offsetChunk.getData(), csrHeader.offset->getData(),
-            *chunkedGroup);
+        setRowIdxFromCSROffsets(offsetChunk.getData(), csrHeader.offset->getData(), erroneousRows);
     }
     csrHeader.finalizeCSRRegionEndOffsets(rightCSROffsetOfRegions);
     KU_ASSERT(csrHeader.sanityCheck());
+
+    return erroneousRows;
 }
 
-void RelBatchInsert::populateCSRLengths(const transaction::Transaction* transaction,
-    const ChunkedCSRHeader& csrHeader, offset_t numNodes, offset_t startNodeOffset,
-    InMemChunkedNodeGroupCollection& partition, const RelBatchInsertInfo& relInfo,
-    BatchInsertErrorHandler& errorHandler) {
+template<typename T>
+static T getValueFromChunkedNodeGroup(const ChunkedNodeGroup& nodeGroup, column_id_t column,
+    common::idx_t row) {
+    return nodeGroup.getColumnChunk(column).getConstData().getValue<T>(row);
+}
+
+static std::optional<WarningSourceData> getWarningDataFromChunks(const ChunkedNodeGroup& nodeGroup,
+    const std::vector<column_id_t> warningColumns, common::idx_t posInChunk) {
+    std::optional<WarningSourceData> ret;
+    if (!warningColumns.empty()) {
+        KU_ASSERT(warningColumns.size() == CopyConstants::WARNING_METADATA_NUM_COLUMNS);
+        KU_ASSERT(
+            std::find_if(warningColumns.begin(), warningColumns.end(), [&nodeGroup](auto columnId) {
+                return (columnId >= nodeGroup.getNumColumns());
+            }) == warningColumns.end());
+        ret = WarningSourceData{
+            getValueFromChunkedNodeGroup<decltype(WarningSourceData::startByteOffset)>(nodeGroup,
+                warningColumns[0], posInChunk),
+            getValueFromChunkedNodeGroup<decltype(WarningSourceData::endByteOffset)>(nodeGroup,
+                warningColumns[1], posInChunk),
+            getValueFromChunkedNodeGroup<decltype(WarningSourceData::fileIdx)>(nodeGroup,
+                warningColumns[2], posInChunk),
+            getValueFromChunkedNodeGroup<decltype(WarningSourceData::blockIdx)>(nodeGroup,
+                warningColumns[3], posInChunk),
+            getValueFromChunkedNodeGroup<decltype(WarningSourceData::rowOffsetInBlock)>(nodeGroup,
+                warningColumns[4], posInChunk)};
+    }
+    return ret;
+}
+
+std::vector<row_idx_t> RelBatchInsert::populateCSRLengths(const ChunkedCSRHeader& csrHeader,
+    offset_t numNodes, offset_t startNodeOffset, InMemChunkedNodeGroupCollection& partition,
+    const RelBatchInsertInfo& relInfo, BatchInsertErrorHandler& errorHandler) {
     const column_id_t boundNodeOffsetColumn = relInfo.boundNodeOffsetColumnID;
 
     auto& relTableEntry = relInfo.tableEntry->constCast<RelTableCatalogEntry>();
@@ -166,24 +204,31 @@ void RelBatchInsert::populateCSRLengths(const transaction::Transaction* transact
               numNodes == csrHeader.offset->getNumValues());
     const auto lengthData = reinterpret_cast<length_t*>(csrHeader.length->getData().getData());
     std::fill(lengthData, lengthData + numNodes, 0);
+
+    std::vector<row_idx_t> erroneousRows;
     for (auto& chunkedGroup : partition.getChunkedGroups()) {
         auto& offsetChunk = chunkedGroup->getColumnChunk(boundNodeOffsetColumn);
         for (auto i = 0u; i < offsetChunk.getNumValues(); i++) {
             const auto nodeOffset = offsetChunk.getData().getValue<offset_t>(i);
             KU_ASSERT(nodeOffset < numNodes);
-            const bool skipCurrentRow =
-                checkMultiplicityConstraint &&
-                !checkRelMultiplicityConstraint(csrHeader, nodeOffset - startNodeOffset);
+            const auto chunkOffset = nodeOffset - startNodeOffset;
+            const bool skipCurrentRow = checkMultiplicityConstraint &&
+                                        !checkRelMultiplicityConstraint(csrHeader, chunkOffset);
             if (skipCurrentRow) {
-                errorHandler.handleError(ExceptionMessage::violateRelMultiplicityConstraint(
-                    relInfo.tableEntry->getName(), std::to_string(nodeOffset),
-                    RelDataDirectionUtils::relDirectionToString(relInfo.direction)));
-                chunkedGroup->delete_(transaction, i);
+                errorHandler.handleError(
+                    ExceptionMessage::violateRelMultiplicityConstraint(
+                        relInfo.tableEntry->getName(), std::to_string(nodeOffset),
+                        RelDataDirectionUtils::relDirectionToString(relInfo.direction)),
+                    getWarningDataFromChunks(*chunkedGroup, relInfo.warningDataColumns,
+                        chunkOffset));
+                erroneousRows.push_back(i);
             } else {
                 lengthData[nodeOffset]++;
             }
         }
     }
+
+    return erroneousRows;
 }
 
 void RelBatchInsert::setOffsetToWithinNodeGroup(ColumnChunkData& chunk, offset_t startOffset) {
@@ -194,16 +239,19 @@ void RelBatchInsert::setOffsetToWithinNodeGroup(ColumnChunkData& chunk, offset_t
     }
 }
 
-void RelBatchInsert::setRowIdxFromCSROffsets(const transaction::Transaction* transaction,
-    ColumnChunkData& rowIdxChunk, ColumnChunkData& csrOffsetChunk, ChunkedNodeGroup& nodeGroup) {
+void RelBatchInsert::setRowIdxFromCSROffsets(ColumnChunkData& rowIdxChunk,
+    ColumnChunkData& csrOffsetChunk, const std::vector<common::row_idx_t>& erroneousRows) {
     KU_ASSERT(rowIdxChunk.getDataType().getPhysicalType() == PhysicalTypeID::INTERNAL_ID);
+    idx_t j = 0;
     for (auto i = 0u; i < rowIdxChunk.getNumValues(); i++) {
-        if (!nodeGroup.isDeleted(transaction, i)) {
+        if (j >= erroneousRows.size() || i < erroneousRows[j]) {
             const auto nodeOffset = rowIdxChunk.getValue<offset_t>(i);
             const auto csrOffset = csrOffsetChunk.getValue<offset_t>(nodeOffset);
             rowIdxChunk.setValue<offset_t>(csrOffset, i);
             // Increment current csr offset for nodeOffset by 1.
             csrOffsetChunk.setValue<offset_t>(csrOffset + 1, nodeOffset);
+        } else {
+            ++j;
         }
     }
 }

@@ -6,6 +6,19 @@
 ---- error
 Copy exception: Node(nodeOffset: 0) has more than one neighbour in table knows in the fwd direction, which violates the rel multiplicity constraint.
 
+-CASE ManyOneMultiplicityViolationIgnoreErrors
+-STATEMENT COPY knows FROM "${KUZU_ROOT_DIRECTORY}/dataset/copy-fault-tests/rel-table-multiplicity-violation/eKnows.csv"(IGNORE_ERRORS=true)
+---- 2
+2 tuples have been copied to the knows table.
+1 warnings encountered during copy. Use 'CALL show_warnings() RETURN *' to view the actual warnings. Query ID: 3
+-STATEMENT MATCH (a:person)-[l:knows]->(b:person) return a.ID, b.ID
+---- 2
+0|1
+1|2
+-STATEMENT CALL show_warnings() RETURN message, file_path, line_number, skipped_line
+---- 1
+Node(nodeOffset: 0) has more than one neighbour in table knows in the fwd direction, which violates the rel multiplicity constraint.|${KUZU_ROOT_DIRECTORY}/dataset/copy-fault-tests/rel-table-multiplicity-violation/eKnows.csv|2|0,2
+
 -CASE OneManyMultiplicityViolationError
 -STATEMENT COPY teaches FROM "${KUZU_ROOT_DIRECTORY}/dataset/copy-fault-tests/rel-table-multiplicity-violation/eTeaches.csv"
 ---- error
