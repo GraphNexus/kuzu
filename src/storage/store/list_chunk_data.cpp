@@ -231,7 +231,7 @@ void ListChunkData::initializeScanState(ChunkState& state, Column* column) const
         listColumn->getOffsetColumn());
 }
 
-void ListChunkData::write(ColumnChunkData* chunk, ColumnChunkData* dstOffsets, RelMultiplicity) {
+void ListChunkData::write(ColumnChunkData* chunk, ColumnChunkData* dstOffsets) {
     KU_ASSERT(chunk->getDataType().getPhysicalType() == dataType.getPhysicalType() &&
               dstOffsets->getDataType().getPhysicalType() == PhysicalTypeID::INTERNAL_ID &&
               chunk->getNumValues() == dstOffsets->getNumValues());

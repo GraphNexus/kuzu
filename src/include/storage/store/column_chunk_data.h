@@ -182,8 +182,7 @@ public:
     // `offsetInVector`, we should flatten the vector to pos at `offsetInVector`.
     virtual void write(const common::ValueVector* vector, common::offset_t offsetInVector,
         common::offset_t offsetInChunk);
-    virtual void write(ColumnChunkData* chunk, ColumnChunkData* offsetsInChunk,
-        common::RelMultiplicity multiplicity);
+    virtual void write(ColumnChunkData* chunk, ColumnChunkData* offsetsInChunk);
     virtual void write(ColumnChunkData* srcChunk, common::offset_t srcOffsetInChunk,
         common::offset_t dstOffsetInChunk, common::offset_t numValuesToCopy);
     // TODO(Guodong): Used in `applyDeletionsToChunk`. Should unify with `write`.
@@ -303,8 +302,7 @@ public:
 
     void write(const common::ValueVector* vector, common::offset_t offsetInVector,
         common::offset_t offsetInChunk) override;
-    void write(ColumnChunkData* chunk, ColumnChunkData* dstOffsets,
-        common::RelMultiplicity multiplicity) final;
+    void write(ColumnChunkData* chunk, ColumnChunkData* dstOffsets) final;
     void write(ColumnChunkData* srcChunk, common::offset_t srcOffsetInChunk,
         common::offset_t dstOffsetInChunk, common::offset_t numValuesToCopy) override;
 };

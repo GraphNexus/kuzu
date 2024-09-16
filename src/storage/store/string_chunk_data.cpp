@@ -160,7 +160,7 @@ void StringChunkData::write(const ValueVector* vector, offset_t offsetInVector,
     }
 }
 
-void StringChunkData::write(ColumnChunkData* chunk, ColumnChunkData* dstOffsets, RelMultiplicity) {
+void StringChunkData::write(ColumnChunkData* chunk, ColumnChunkData* dstOffsets) {
     KU_ASSERT(chunk->getDataType().getPhysicalType() == PhysicalTypeID::STRING &&
               dstOffsets->getDataType().getPhysicalType() == PhysicalTypeID::INTERNAL_ID &&
               chunk->getNumValues() == dstOffsets->getNumValues());

@@ -118,12 +118,6 @@ public:
     static std::unique_ptr<ChunkedCSRNodeGroup> deserialize(MemoryManager& memoryManager,
         common::Deserializer& deSer);
 
-    void writeToColumnChunk(common::idx_t chunkIdx, common::idx_t vectorIdx,
-        const std::vector<std::unique_ptr<ColumnChunk>>& data, ColumnChunk& offsetChunk) override {
-        chunks[chunkIdx]->getData().write(&data[vectorIdx]->getData(), &offsetChunk.getData(),
-            common::RelMultiplicity::MANY);
-    }
-
     void scanCSRHeader(MemoryManager& memoryManager, CSRNodeGroupCheckpointState& csrState) const;
 
     std::unique_ptr<ChunkedNodeGroup> flushAsNewChunkedNodeGroup(

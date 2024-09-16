@@ -4,7 +4,6 @@
 #include <cstring>
 
 #include "common/data_chunk/sel_vector.h"
-#include "common/exception/copy.h"
 #include "common/serializer/deserializer.h"
 #include "common/serializer/serializer.h"
 #include "common/type_utils.h"
@@ -286,8 +285,7 @@ void ColumnChunkData::lookup(offset_t offsetInChunk, ValueVector& output,
     }
 }
 
-void ColumnChunkData::write(ColumnChunkData* chunk, ColumnChunkData* dstOffsets,
-    RelMultiplicity multiplicity) {
+void ColumnChunkData::write(ColumnChunkData* chunk, ColumnChunkData* dstOffsets) {
     KU_ASSERT(chunk->dataType.getPhysicalType() == dataType.getPhysicalType() &&
               dstOffsets->getDataType().getPhysicalType() == PhysicalTypeID::INTERNAL_ID &&
               chunk->getNumValues() == dstOffsets->getNumValues());
@@ -298,18 +296,10 @@ void ColumnChunkData::write(ColumnChunkData* chunk, ColumnChunkData* dstOffsets,
             numBytesPerValue);
         numValues = dstOffset >= numValues ? dstOffset + 1 : numValues;
     }
-    if (nullData || multiplicity == RelMultiplicity::ONE) {
+    if (nullData) {
         for (auto i = 0u; i < dstOffsets->getNumValues(); i++) {
             const auto dstOffset = dstOffsets->getValue<offset_t>(i);
-            if (multiplicity == RelMultiplicity::ONE && isNull(dstOffset)) {
-                throw CopyException(
-                    stringFormat("Node with offset: {} can only have one neighbour due "
-                                 "to the MANY-ONE/ONE-ONE relationship constraint.",
-                        dstOffset));
-            }
-            if (nullData) {
-                nullData->setNull(dstOffset, chunk->isNull(i));
-            }
+            nullData->setNull(dstOffset, chunk->isNull(i));
         }
     }
 }
@@ -577,7 +567,7 @@ void BoolChunkData::lookup(offset_t offsetInChunk, ValueVector& output,
     }
 }
 
-void BoolChunkData::write(ColumnChunkData* chunk, ColumnChunkData* dstOffsets, RelMultiplicity) {
+void BoolChunkData::write(ColumnChunkData* chunk, ColumnChunkData* dstOffsets) {
     KU_ASSERT(chunk->getDataType().getPhysicalType() == PhysicalTypeID::BOOL &&
               dstOffsets->getDataType().getPhysicalType() == PhysicalTypeID::INTERNAL_ID &&
               chunk->getNumValues() == dstOffsets->getNumValues());
