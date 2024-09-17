@@ -84,9 +84,6 @@ void Planner::appendNonRecursiveExtend(const std::shared_ptr<NodeExpression>& bo
     // Filter bound node label if we know some incoming nodes won't have any outgoing rel. This
     // cannot be done at binding time because the pruning is affected by extend direction.
     auto boundNodeTableIDSet = getBoundNodeTableIDSet(*rel, direction);
-    if (boundNode->getNumEntries() > boundNodeTableIDSet.size()) {
-        appendNodeLabelFilter(boundNode->getInternalID(), boundNodeTableIDSet, plan);
-    }
     auto properties_ = properties;
     auto iri = getIRIProperty(properties);
     if (iri != nullptr) {
@@ -108,9 +105,6 @@ void Planner::appendNonRecursiveExtend(const std::shared_ptr<NodeExpression>& bo
     group->setMultiplier(extensionRate);
     plan.setLastOperator(std::move(extend));
     auto nbrNodeTableIDSet = getNbrNodeTableIDSet(*rel, direction);
-    if (nbrNodeTableIDSet.size() > nbrNode->getNumEntries()) {
-        appendNodeLabelFilter(nbrNode->getInternalID(), nbrNode->getTableIDsSet(), plan);
-    }
     if (iri) {
         // Use additional hash join to convert PID to IRI.
         auto rdfInfo = rel->getRdfPredicateInfo();
@@ -134,6 +128,7 @@ void Planner::appendRecursiveExtend(const std::shared_ptr<NodeExpression>& bound
     bool extendFromSource = *boundNode == *rel->getSrcNode();
     createRecursivePlan(*recursiveInfo, direction, extendFromSource, *recursivePlan);
     // Create recursive extend
+    // TODO(Guodong/Xiyang): Ideally we should get rid of node label filter.
     if (boundNode->getNumEntries() > recursiveInfo->node->getNumEntries()) {
         appendNodeLabelFilter(boundNode->getInternalID(), recursiveInfo->node->getTableIDsSet(),
             plan);
