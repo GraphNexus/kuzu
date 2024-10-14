@@ -39,8 +39,7 @@ struct ScheduledTask {
  * that is not accepting more registration can stay in the queue for an unlimited time until
  * completion.
  */
-#ifndef __SINGLE_THREADED__
-class TaskScheduler {
+class KUZU_API TaskScheduler {
 public:
     explicit TaskScheduler(uint64_t numWorkerThreads);
     ~TaskScheduler();
