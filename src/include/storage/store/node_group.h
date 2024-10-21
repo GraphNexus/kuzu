@@ -136,6 +136,9 @@ public:
         TableScanState& state);
     virtual NodeGroupScanResult scan(transaction::Transaction* transaction, TableScanState& state);
 
+    virtual NodeGroupScanResult scan(transaction::Transaction* transaction, TableScanState& state,
+        common::offset_t startOffset, common::offset_t numNodes) const;
+
     bool lookup(const common::UniqLock& lock, transaction::Transaction* transaction,
         const TableScanState& state);
     bool lookup(transaction::Transaction* transaction, const TableScanState& state);
