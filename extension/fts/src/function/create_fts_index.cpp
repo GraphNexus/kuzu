@@ -57,6 +57,7 @@ static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* context,
 
 std::string createFTSIndexQuery(ClientContext& context,
     std::vector<parser::ParsedExpression*> parameters) {
+    KU_ASSERT(false);
     for (auto& parameter : parameters) {
         parser::ParsedExpressionUtils::validateType(*parameter, ExpressionType::LITERAL);
         parser::ParsedExpressionUtils::validateDataType(*parameter, LogicalType::STRING());

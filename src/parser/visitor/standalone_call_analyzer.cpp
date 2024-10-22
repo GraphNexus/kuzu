@@ -1,5 +1,6 @@
 #include "parser/visitor/standalone_call_analyzer.h"
 
+#include "binder/binder.h"
 #include "catalog/catalog.h"
 #include "common/enums/expression_type.h"
 #include "function/built_in_function_utils.h"
@@ -8,7 +9,6 @@
 #include "parser/expression/parsed_literal_expression.h"
 #include "parser/parsed_expression_visitor.h"
 #include "parser/standalone_call_function.h"
-#include "binder/binder.h"
 
 namespace kuzu {
 namespace parser {
@@ -19,6 +19,7 @@ std::string StandaloneCallAnalyzer::getRewriteQuery(const Statement& statement) 
 }
 
 void StandaloneCallAnalyzer::visitStandaloneCallFunction(const Statement& statement) {
+    return;
     auto& standaloneCallFunc = statement.constCast<StandaloneCallFunction>();
     auto& funcExpr =
         standaloneCallFunc.getFunctionExpression()->constCast<ParsedFunctionExpression>();

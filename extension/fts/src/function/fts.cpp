@@ -40,7 +40,6 @@ struct EdgeInfo {
 struct FTSEdgeCompute : public EdgeCompute {
     DoublePathLengthsFrontierPair* frontierPair;
     common::node_id_map_t<EdgeInfo>* score;
-    common::node_id_map_t<uint64_t>* len;
     common::node_id_map_t<uint64_t>* nodeProp;
     FTSEdgeCompute(DoublePathLengthsFrontierPair* frontierPair,
         common::node_id_map_t<EdgeInfo>* score, common::node_id_map_t<uint64_t>* nodeProp)
@@ -208,11 +207,12 @@ void runVertexComputeIteration(processor::ExecutionContext* executionContext, gr
 
 void FTSAlgorithm::exec(processor::ExecutionContext* executionContext) {
     auto tableID = sharedState->graph->getNodeTableIDs()[0];
-    if (!sharedState->inputNodeOffsetMasks.contains(tableID)) {
+    if (!sharedState->getInputNodeMaskMap()->containsTableID(tableID)) {
         return;
     }
-    auto mask = sharedState->inputNodeOffsetMasks.at(tableID).get();
+    auto inputNodeMaskMap = sharedState->getInputNodeMaskMap();
     auto output = std::make_unique<FTSOutput>();
+    auto mask = inputNodeMaskMap->getOffsetMask(tableID);
     for (auto offset = 0u; offset < sharedState->graph->getNumNodes(tableID); ++offset) {
         if (!mask->isMasked(offset)) {
             continue;

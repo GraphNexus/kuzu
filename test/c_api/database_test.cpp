@@ -123,7 +123,7 @@ TEST_F(CApiDatabaseTest, CreationHomeDir1) {
     printf("%s", conn->query("create (p:person {id: 25, content: 'beats hero', author: 'beats'})")
                      ->toString()
                      .c_str());
-    printf("%s", conn->query("CALL create_fts_index('person', 'test', ['content', 'author'])")
+    printf("%s", conn->query("CALL create_fts_index('person', 'test', ['content', 'author']) RETURN *")
                      ->toString()
                      .c_str());
     printf("%s", conn->query("MATCH (p1:person_dict)-[p:person_terms]->(p2:person_docs) RETURN "
