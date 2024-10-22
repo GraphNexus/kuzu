@@ -2,6 +2,7 @@
 
 #include "binder/binder.h"
 #include "binder/expression/expression_util.h"
+#include "catalog/catalog.h"
 #include "common/exception/runtime.h"
 #include "common/task_system/task_scheduler.h"
 #include "common/types/internal_id_util.h"
@@ -46,16 +47,18 @@ struct FTSEdgeCompute : public EdgeCompute {
         : frontierPair{frontierPair}, score{score}, nodeProp{nodeProp} {}
 
     void edgeCompute(nodeID_t boundNodeID, std::span<const common::nodeID_t> nbrIDs,
-        std::span<const relID_t>, SelectionVector& mask, bool) override {
+        std::span<const relID_t>, SelectionVector& mask, bool /*isFwd*/,
+        const ValueVector* edgeProp) override {
         KU_ASSERT(nodeProp->contains(boundNodeID));
         size_t activeCount = 0;
         mask.forEach([&](auto i) {
             auto nbrNodeID = nbrIDs[i];
-            uint64_t df = nodeProp->at(boundNodeID);
+            auto df = nodeProp->at(boundNodeID);
+            auto tf = edgeProp->getValue<uint64_t>(i);
             if (!score->contains(nbrNodeID)) {
                 score->emplace(nbrNodeID, EdgeInfo{boundNodeID});
             }
-            score->at(nbrNodeID).addEdge(df, df);
+            score->at(nbrNodeID).addEdge(df, tf);
             mask.getMutableBuffer()[activeCount++] = i;
         });
         mask.setToFiltered(activeCount);
@@ -75,7 +78,7 @@ public:
 };
 
 void runFrontiersOnce(processor::ExecutionContext* executionContext, FTSState& ftsState,
-    graph::Graph* graph) {
+    graph::Graph* graph, common::idx_t edgePropertyIndex) {
     auto frontierPair = ftsState.frontierPair.get();
     frontierPair->beginNewIteration();
     for (auto& relTableIDInfo : graph->getRelTableIDInfos()) {
@@ -84,7 +87,7 @@ void runFrontiersOnce(processor::ExecutionContext* executionContext, FTSState& f
         auto sharedState = std::make_shared<FrontierTaskSharedState>(*frontierPair);
         auto clientContext = executionContext->clientContext;
         auto info = FrontierTaskInfo(relTableIDInfo.relTableID, graph, common::ExtendDirection::FWD,
-            *ftsState.edgeCompute, 0 /* only one rel property in fts */);
+            *ftsState.edgeCompute, edgePropertyIndex);
         auto maxThreads =
             clientContext->getCurrentSetting(main::ThreadsSetting::name).getValue<uint64_t>();
         auto task = std::make_shared<FrontierTask>(maxThreads, info, sharedState);
@@ -226,7 +229,11 @@ void FTSAlgorithm::exec(processor::ExecutionContext* executionContext) {
             sharedState->nodeProp);
         FTSState ftsState = FTSState{std::move(frontierPair), std::move(edgeCompute)};
         ftsState.initFTSFromSource(sourceNodeID);
-        runFrontiersOnce(executionContext, ftsState, sharedState->graph.get());
+        runFrontiersOnce(executionContext, ftsState, sharedState->graph.get(),
+            executionContext->clientContext->getCatalog()
+                ->getTableCatalogEntry(executionContext->clientContext->getTx(),
+                    sharedState->graph->getRelTableIDs()[0])
+                ->getPropertyIdx("tf"));
     }
 
     FTSOutputWriter outputWriter{executionContext->clientContext->getMemoryManager(), output.get()};
