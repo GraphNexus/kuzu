@@ -12,6 +12,7 @@
 #include "main/db_config.h"
 #include "optimizer/optimizer.h"
 #include "parser/parser.h"
+#include "parser/visitor/standalone_call_analyzer.h"
 #include "parser/visitor/statement_read_write_analyzer.h"
 #include "planner/operator/logical_plan_util.h"
 #include "planner/planner.h"
@@ -389,7 +390,19 @@ std::vector<std::shared_ptr<Statement>> ClientContext::parseQuery(std::string_vi
         transactionContext->beginAutoTransaction(true /* readOnlyStatement */);
     }
     try {
-        statements = Parser::parseQuery(query, this);
+        auto parsedStatements = Parser::parseQuery(query, this);
+        StandaloneCallAnalyzer analyzer{this};
+        for (auto i = 0u; i < parsedStatements.size(); i++) {
+            auto rewriteQuery = analyzer.getRewriteQuery(*parsedStatements[i]);
+            if (rewriteQuery.empty()) {
+                statements.push_back(parsedStatements[i]);
+            } else {
+                auto rewrittenStatements = Parser::parseQuery(rewriteQuery, this);
+                for (auto& statement : rewrittenStatements) {
+                    statements.push_back(statement);
+                }
+            }
+        }
     } catch (std::exception& exception) {
         if (startNewTrx) {
             transactionContext->rollback();

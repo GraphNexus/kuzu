@@ -123,10 +123,9 @@ TEST_F(CApiDatabaseTest, CreationHomeDir1) {
     printf("%s", conn->query("create (p:person {id: 25, content: 'beats hero', author: 'beats'})")
                      ->toString()
                      .c_str());
-    printf("%s",
-        conn->query("CALL create_fts_index('person', 'test', ['content', 'author']) RETURN *")
-            ->toString()
-            .c_str());
+    printf("%s", conn->query("CALL create_fts_index('person', 'test', ['content', 'author'])")
+                     ->toString()
+                     .c_str());
     printf("%s", conn->query("MATCH (p1:person_dict)-[p:person_terms]->(p2:person_docs) RETURN "
                              "p1.term, p2.offset, p.tf")
                      ->toString()
@@ -155,4 +154,9 @@ TEST_F(CApiDatabaseTest, CreationHomeDir1) {
     //                             "return *;")
     //                     ->toString()
     //                     .c_str());
+}
+
+TEST_F(CApiDatabaseTest, CreationHomeDi21) {
+    createDBAndConn();
+    conn->query("create node table person (id int64, primary key(id))");
 }

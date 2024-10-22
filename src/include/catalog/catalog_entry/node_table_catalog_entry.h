@@ -40,7 +40,6 @@ private:
 
 private:
     std::string primaryKeyName;
-    std::vector<Index>
 };
 
 } // namespace catalog

@@ -6,6 +6,9 @@
 #include "function.h"
 
 namespace kuzu {
+namespace parser {
+class ParsedExpression;
+}
 namespace main {
 class ClientContext;
 }
@@ -85,6 +88,8 @@ using table_func_can_parallel_t = std::function<bool()>;
 using table_func_progress_t = std::function<double(TableFuncSharedState* sharedState)>;
 using table_func_finalize_t =
     std::function<void(processor::ExecutionContext*, TableFuncSharedState*, TableFuncLocalState*)>;
+using table_func_rewrite_t =
+    std::function<std::string(main::ClientContext&, std::vector<parser::ParsedExpression*>)>;
 
 struct KUZU_API TableFunction : public Function {
     table_func_t tableFunc;
@@ -124,6 +129,17 @@ struct KUZU_API TableFunction : public Function {
     std::string signatureToString() const override {
         return common::LogicalTypeUtils::toString(parameterTypeIDs);
     }
+};
+
+struct StandaloneCallFunction : public TableFunction {
+    table_func_rewrite_t rewriteFunc;
+
+    StandaloneCallFunction(std::string name, table_func_t tableFunc, table_func_bind_t bindFunc,
+        table_func_init_shared_t initSharedFunc, table_func_init_local_t initLocalFunc,
+        std::vector<common::LogicalTypeID> inputTypes, table_func_rewrite_t rewriteFunc)
+        : TableFunction{std::move(name), tableFunc, bindFunc, initSharedFunc, initLocalFunc,
+              std::move(inputTypes)},
+          rewriteFunc{rewriteFunc} {}
 };
 
 } // namespace function

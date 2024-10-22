@@ -149,9 +149,8 @@ void Planner::planGDSCall(const BoundReadingClause& readingClause,
                         "df");
                 op->cast<LogicalScanNodeTable>().addProperty(prop);
                 auto nodeID = bindData->getNodeInput()->constCast<NodeExpression>().getInternalID();
-                auto printInfo = std::make_unique<OPPrintInfo>();
                 auto propertyMasker = std::make_shared<LogicalPropertyCollector>(nodeID, prop,
-                    gdsCall.get(), plan->getLastOperator(), std::move(printInfo));
+                    gdsCall.get(), plan->getLastOperator());
                 propertyMasker->computeFactorizedSchema();
                 plan->setLastOperator(std::move(propertyMasker));
             }

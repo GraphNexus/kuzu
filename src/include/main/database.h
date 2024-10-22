@@ -107,6 +107,9 @@ public:
     KUZU_API void addTableFunction(std::string name,
         std::vector<std::unique_ptr<function::Function>> functionSet);
 
+    KUZU_API void addStandaloneCallFunction(std::string name,
+        std::vector<std::unique_ptr<function::Function>> functionSet);
+
     KUZU_API void registerFileSystem(std::unique_ptr<common::FileSystem> fs);
 
     KUZU_API void registerStorageExtension(std::string name,

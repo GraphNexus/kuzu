@@ -204,10 +204,11 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
 
 function_set CreateFTSFunction::getFunctionSet() {
     function_set functionSet;
-    auto func = std::make_unique<TableFunction>(name, tableFunc, bindFunc, initSharedState,
+    auto func = std::make_unique<StandaloneCallFunction>(name, tableFunc, bindFunc, initSharedState,
         initEmptyLocalState,
         std::vector<LogicalTypeID>{LogicalTypeID::STRING, LogicalTypeID::STRING,
-            LogicalTypeID::LIST});
+            LogicalTypeID::LIST},
+        createFTSIndexQuery);
     func->canParallelFunc = []() { return false; };
     functionSet.push_back(std::move(func));
     return functionSet;

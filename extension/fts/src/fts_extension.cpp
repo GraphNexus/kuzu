@@ -15,7 +15,7 @@ void FTSExtension::load(main::ClientContext* context) {
     auto& db = *context->getDatabase();
     ADD_SCALAR_FUNC(StemFunction);
     ADD_GDS_FUNC(FTSFunction);
-    db.addTableFunction(CreateFTSFunction::name, CreateFTSFunction::getFunctionSet());
+    db.addStandaloneCallFunction(CreateFTSFunction::name, CreateFTSFunction::getFunctionSet());
     db.addTableFunction(QueryFTSFunction::name, QueryFTSFunction::getFunctionSet());
 }
 
