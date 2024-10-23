@@ -48,12 +48,13 @@ private:
 class KUZU_API VertexComputeTaskSharedState {
 public:
     VertexComputeTaskSharedState(graph::Graph* graph, VertexCompute& vc,
-        uint64_t maxThreadsForExecution);
+        uint64_t maxThreadsForExecution, std::vector<std::string> propertiesToScan);
 
 public:
     graph::Graph* graph;
     VertexCompute& vc;
     std::unique_ptr<FrontierMorselDispatcher> morselDispatcher;
+    std::vector<std::string> propertiesToScan;
 };
 
 class KUZU_API VertexComputeTask : public common::Task {
@@ -67,5 +68,6 @@ public:
 private:
     std::shared_ptr<VertexComputeTaskSharedState> sharedState;
 };
+
 } // namespace function
 } // namespace kuzu

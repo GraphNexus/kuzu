@@ -61,17 +61,16 @@ void FrontierTask::run() {
 }
 
 VertexComputeTaskSharedState::VertexComputeTaskSharedState(graph::Graph* graph, VertexCompute& vc,
-    uint64_t maxThreadsForExecution)
-    : graph{graph}, vc{vc} {
+    uint64_t maxThreadsForExecution, std::vector<std::string> propertiesToScan)
+    : graph{graph}, vc{vc}, propertiesToScan{std::move(propertiesToScan)} {
     morselDispatcher = std::make_unique<FrontierMorselDispatcher>(maxThreadsForExecution);
 }
 
 void VertexComputeTask::run() {
     FrontierMorsel frontierMorsel;
     auto graph = sharedState->graph;
-    std::vector<std::string> propertiesToScan;
-    auto scanState =
-        graph->prepareVertexScan(sharedState->morselDispatcher->getTableID(), propertiesToScan);
+    auto scanState = graph->prepareVertexScan(sharedState->morselDispatcher->getTableID(),
+        sharedState->propertiesToScan);
     auto localVc = sharedState->vc.copy();
     while (sharedState->morselDispatcher->getNextRangeMorsel(frontierMorsel)) {
         for (auto [nodeIDs, propertyVectors] : graph->scanVertices(frontierMorsel.getBeginOffset(),

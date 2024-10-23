@@ -47,7 +47,8 @@ void GDSUtils::runVertexComputeIteration(processor::ExecutionContext* executionC
     graph::Graph* graph, VertexCompute& vc) {
     auto sharedState = std::make_shared<VertexComputeTaskSharedState>(graph, vc,
         executionContext->clientContext->getCurrentSetting(main::ThreadsSetting::name)
-            .getValue<uint64_t>());
+            .getValue<uint64_t>(),
+        std::vector<std::string>{});
     for (auto& tableID : graph->getNodeTableIDs()) {
         vc.beginOnTable(tableID);
         sharedState->morselDispatcher->init(tableID, graph->getNumNodes(tableID));

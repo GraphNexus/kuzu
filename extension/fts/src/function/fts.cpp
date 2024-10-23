@@ -106,10 +106,10 @@ void runFrontiersOnce(processor::ExecutionContext* executionContext, FTSState& f
 
 class FTSOutputWriter {
 public:
-    FTSOutputWriter(storage::MemoryManager* mm, FTSOutput* ftsOutput)
+    FTSOutputWriter(storage::MemoryManager* mm, FTSOutput* ftsOutput, const FTSBindData& bindData)
         : ftsOutput{std::move(ftsOutput)}, srcNodeIDVector{LogicalType::INTERNAL_ID(), mm},
           dstNodeIDVector{LogicalType::INTERNAL_ID(), mm}, scoreVector{LogicalType::UINT64(), mm},
-          mm{mm} {
+          mm{mm}, bindData{bindData} {
         auto state = DataChunkState::getSingleValueDataChunkState();
         pos = state->getSelVector()[0];
         srcNodeIDVector.setState(state);
@@ -120,7 +120,7 @@ public:
         vectors.push_back(&scoreVector);
     }
 
-    void write(processor::FactorizedTable& fTable, nodeID_t dstNodeID) {
+    void write(processor::FactorizedTable& fTable, nodeID_t dstNodeID, uint64_t len) {
         bool hasScore = ftsOutput->score.contains(dstNodeID);
         srcNodeIDVector.setNull(pos, !hasScore);
         dstNodeIDVector.setNull(pos, !hasScore);
@@ -129,7 +129,14 @@ public:
             auto edgeInfo = ftsOutput->score.at(dstNodeID);
             double score = 0;
             for (auto& edgeProp : edgeInfo.edgeProps) {
-                score += edgeProp.df;
+                auto numDocs = bindData.numDocs;
+                auto avgDL = bindData.avgDL;
+                auto df = edgeProp.df;
+                auto tf = edgeProp.tf;
+                auto k = bindData.k;
+                auto b = bindData.b;
+                score += log10((numDocs - df + 0.5) / (df + 0.5) + 1) *
+                         ((tf * (k + 1) / (tf + k * (1 - b + b * (len / avgDL)))));
             }
             srcNodeIDVector.setValue(pos, edgeInfo.srcNode);
             dstNodeIDVector.setValue(pos, dstNodeID);
@@ -148,10 +155,11 @@ private:
     std::vector<common::ValueVector*> vectors;
     common::idx_t pos;
     storage::MemoryManager* mm;
+    const FTSBindData& bindData;
 };
 
 std::unique_ptr<FTSOutputWriter> FTSOutputWriter::copy() {
-    return std::make_unique<FTSOutputWriter>(mm, ftsOutput);
+    return std::make_unique<FTSOutputWriter>(mm, ftsOutput, bindData);
 }
 
 class FTSOutputWriterSharedState {
@@ -176,7 +184,12 @@ public:
 
     void beginOnTable(table_id_t /*tableID*/) override {}
 
-    void vertexCompute(nodeID_t nodeID) override { localFTSOutputWriter->write(*localFT, nodeID); }
+    void vertexCompute(std::span<const nodeID_t> nodeIDs,
+        std::span<const std::unique_ptr<ValueVector>> properties) override {
+        for (auto i = 0u; i < nodeIDs.size(); i++) {
+            localFTSOutputWriter->write(*localFT, nodeIDs[i], properties[0]->getValue<uint64_t>(i));
+        }
+    }
 
     void finalizeWorkerThread() override {
         std::unique_lock lck(sharedState->mtx);
@@ -197,7 +210,8 @@ void runVertexComputeIteration(processor::ExecutionContext* executionContext, gr
     VertexCompute& vc) {
     auto sharedState = std::make_shared<VertexComputeTaskSharedState>(graph, vc,
         executionContext->clientContext->getCurrentSetting(main::ThreadsSetting::name)
-            .getValue<uint64_t>());
+            .getValue<uint64_t>(),
+        std::vector<std::string>{"len"});
     auto tableID = graph->getNodeTableIDs()[1];
     sharedState->morselDispatcher->init(tableID, graph->getNumNodes(tableID));
     auto task = std::make_shared<VertexComputeTask>(
@@ -235,8 +249,8 @@ void FTSAlgorithm::exec(processor::ExecutionContext* executionContext) {
                     sharedState->graph->getRelTableIDs()[0])
                 ->getPropertyIdx("tf"));
     }
-
-    FTSOutputWriter outputWriter{executionContext->clientContext->getMemoryManager(), output.get()};
+    FTSOutputWriter outputWriter{executionContext->clientContext->getMemoryManager(), output.get(),
+        *bindData->ptrCast<FTSBindData>()};
     auto ftsOutputWriterSharedState = std::make_unique<FTSOutputWriterSharedState>(
         executionContext->clientContext->getMemoryManager(), sharedState->fTable.get(),
         &outputWriter);
@@ -260,9 +274,14 @@ binder::expression_vector FTSAlgorithm::getResultColumns(binder::Binder* binder)
 
 void FTSAlgorithm::bind(const binder::expression_vector& params, binder::Binder* binder,
     graph::GraphEntry& graphEntry) {
+    KU_ASSERT(params.size() == 6);
     auto nodeInput = params[1];
+    auto k = ExpressionUtil::getLiteralValue<double>(*params[2]);
+    auto b = ExpressionUtil::getLiteralValue<double>(*params[3]);
+    auto numDocs = ExpressionUtil::getLiteralValue<uint64_t>(*params[4]);
+    auto avgDL = ExpressionUtil::getLiteralValue<double>(*params[5]);
     auto nodeOutput = bindNodeOutput(binder, graphEntry);
-    bindData = std::make_unique<FTSBindData>(nodeInput, nodeOutput);
+    bindData = std::make_unique<FTSBindData>(nodeInput, nodeOutput, k, b, numDocs, avgDL);
 }
 
 function::function_set FTSFunction::getFunctionSet() {

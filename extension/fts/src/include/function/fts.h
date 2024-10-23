@@ -11,11 +11,19 @@ namespace fts_extension {
 
 struct FTSBindData final : public function::GDSBindData {
     std::shared_ptr<binder::Expression> nodeInput;
+    double_t k;
+    double_t b;
+    uint64_t numDocs;
+    double_t avgDL;
 
     FTSBindData(std::shared_ptr<binder::Expression> nodeInput,
-        std::shared_ptr<binder::Expression> nodeOutput)
-        : GDSBindData{std::move(nodeOutput)}, nodeInput{std::move(nodeInput)} {}
-    FTSBindData(const FTSBindData& other) : GDSBindData{other}, nodeInput{other.nodeInput} {}
+        std::shared_ptr<binder::Expression> nodeOutput, double_t k, double_t b, uint64_t numDocs,
+        double_t avgDL)
+        : GDSBindData{std::move(nodeOutput)}, nodeInput{std::move(nodeInput)}, k{k}, b{b},
+          numDocs{numDocs}, avgDL{avgDL} {}
+    FTSBindData(const FTSBindData& other)
+        : GDSBindData{other}, nodeInput{other.nodeInput}, k{other.k}, b{other.b},
+          numDocs{other.numDocs}, avgDL{other.avgDL} {}
 
     bool hasNodeInput() const override { return true; }
     std::shared_ptr<binder::Expression> getNodeInput() const override { return nodeInput; }
@@ -50,7 +58,9 @@ public:
      * queryString: STRING
      */
     std::vector<common::LogicalTypeID> getParameterTypeIDs() const override {
-        return {common::LogicalTypeID::ANY, common::LogicalTypeID::NODE};
+        return {common::LogicalTypeID::ANY, common::LogicalTypeID::NODE,
+            common::LogicalTypeID::DOUBLE, common::LogicalTypeID::DOUBLE,
+            common::LogicalTypeID::UINT64, common::LogicalTypeID::DOUBLE};
     }
 
     void exec(processor::ExecutionContext* executionContext) override;

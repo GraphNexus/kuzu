@@ -103,57 +103,40 @@ TEST_F(CApiDatabaseTest, CreationHomeDir) {
 
 TEST_F(CApiDatabaseTest, CreationHomeDir1) {
     createDBAndConn();
+    printf("%s", conn->query("LOAD EXTENSION "
+                             "'/Users/z473chen/Desktop/code/kuzu/extension/duckdb/build/"
+                             "libduckdb.kuzu_extension'")
+                     ->toString()
+                     .c_str());
     printf("%s",
         conn->query("LOAD EXTENSION "
                     "'/Users/z473chen/Desktop/code/kuzu/extension/fts/build/libfts.kuzu_extension'")
             ->toString()
             .c_str());
-    printf("%s", conn->query("create node table person (id int64, content string, author string, "
+    printf("%s", conn->query("attach "
+                             "'/Users/z473chen/Desktop/code/kuzu/anserini/collections/"
+                             "msmarco-passage/doc-test'  as doc (dbtype duckdb);")
+                     ->toString()
+                     .c_str());
+    printf("%s", conn->query("create node table doc (id int64, content string,"
                              "primary key(id));")
                      ->toString()
                      .c_str());
-    printf("%s",
-        conn->query("create (p:person {id: 5, content: 'monster hero', author: 'monster'})")
-            ->toString()
-            .c_str());
-    printf("%s",
-        conn->query("create (p:person {id: 20, content: 'beats hero', author: 'monster beats'})")
-            ->toString()
-            .c_str());
-    printf("%s", conn->query("create (p:person {id: 25, content: 'beats hero', author: 'beats'})")
+    printf("%s", conn->query("copy doc from (load from doc.doc return *);")->toString().c_str());
+    printf("%s", conn->query("CALL create_fts_index('doc', 'test', ['content']) RETURN *")
                      ->toString()
                      .c_str());
-    printf("%s", conn->query("CALL create_fts_index('person', 'test', ['content', 'author']) RETURN *")
-                     ->toString()
-                     .c_str());
-    printf("%s", conn->query("MATCH (p1:person_dict)-[p:person_terms]->(p2:person_docs) RETURN "
-                             "p1.term, p2.offset, p.tf")
-                     ->toString()
-                     .c_str());
-    //    printf("%s", conn->query("explain PROJECT GRAPH PK (person_dict, person_docs,
-    //    person_terms) "
-    //                             "MATCH (a:person_dict) "
-    //                             "WHERE list_contains(['monster'], a.term) "
-    //                             "CALL FTS(PK, a) "
-    //                             "RETURN _node,score")
-    //                     ->toString()
-    //                     .c_str());
-    printf("%s", conn->query(" PROJECT GRAPH PK (person_dict, person_docs, person_terms) "
-                             "UNWIND tokenize('monster') AS tk "
-                             "WITH collect(stem(tk, 'porter')) AS tokens "
-                             "MATCH (a:person_dict) "
-                             "WHERE list_contains(tokens, a.term) "
-                             "CALL FTS(PK, a) "
-                             "MATCH (p:person) "
-                             "WHERE _node.offset = offset(id(p)) "
-                             "RETURN p, score")
-                     ->toString()
-                     .c_str());
-    //
-    //    printf("%s", conn->query("CALL query_fts_index('person', 'test', 'monster') "
-    //                             "return *;")
-    //                     ->toString()
-    //                     .c_str());
+//    printf("%s", conn->query("CALL query_fts_index('doc', 'test', 'number') "
+//                             "return node,score order by score;")
+//                     ->toString()
+//                     .c_str());
+    auto result = conn->query("CALL query_fts_index('doc', 'test', 'dispossessed meaning') "
+                              "return node.id, score order by score, node.id;");
+    while (result->hasNext()) {
+        auto tuple = result->getNext();
+        printf("%s,%s\n", tuple->getValue(0)->toString().c_str(),
+            tuple->getValue(1)->toString().c_str());
+    }
 }
 
 TEST_F(CApiDatabaseTest, CreationHomeDi21) {

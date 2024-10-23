@@ -34,22 +34,32 @@ struct QueryFTSLocalState : public TableFuncLocalState {
     uint64_t numRowsOutput = 0;
 };
 
+static LogicalType bindNodeType(std::string tableName, ClientContext* context) {
+    if (!context->getCatalog()->containsTable(context->getTx(), tableName)) {
+        throw BinderException{common::stringFormat("Table {} does not exist.", tableName)};
+    }
+    std::vector<StructField> nodeFields;
+    nodeFields.emplace_back(InternalKeyword::ID, LogicalType::INTERNAL_ID());
+    nodeFields.emplace_back(InternalKeyword::LABEL, LogicalType::STRING());
+    auto tableEntry = context->getCatalog()->getTableCatalogEntry(context->getTx(), tableName);
+    for (auto& property : tableEntry->getProperties()) {
+        nodeFields.emplace_back(property.getName(), property.getType().copy());
+    }
+    return LogicalType::NODE(std::make_unique<StructTypeInfo>(std::move(nodeFields)));
+}
+
 static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* context,
     ScanTableFuncBindInput* input) {
     std::vector<std::string> columnNames;
     std::vector<LogicalType> columnTypes;
     auto tableName = input->inputs[0].toString();
-    if (!context->getCatalog()->containsTable(context->getTx(), tableName)) {
-        throw BinderException{common::stringFormat("Table {} does not exist.", tableName)};
-    }
-    auto result = context->runQuery(common::stringFormat("MATCH (d:{}) RETURN d;", tableName));
-    columnTypes.push_back(result->getColumnDataTypes()[0].copy());
+    columnTypes.push_back(bindNodeType(tableName, context));
     columnNames.push_back("node");
     columnTypes.push_back(LogicalType::DOUBLE());
     columnNames.push_back("score");
     auto query = input->inputs[2].toString();
     return std::make_unique<QueryFTSBindData>(tableName, query, std::move(columnTypes),
-        std::move(columnNames), result->getNumTuples() - 1);
+        std::move(columnNames), 1);
 }
 
 static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output) {
@@ -61,20 +71,26 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
             return 0;
         }
         auto tableName = bindData->tableName;
-        auto query = common::stringFormat("PROJECT GRAPH PK ({}_dict, {}_docs, {}_terms) "
-                                          "UNWIND tokenize('{}') AS tk "
-                                          "WITH collect(stem(tk, 'porter')) AS tokens "
-                                          "MATCH (a:{}_dict) "
-                                          "WHERE list_contains(tokens, a.term) "
-                                          "CALL FTS(PK, a) "
-                                          "MATCH (p:person) "
-                                          "WHERE _node.offset = offset(id(p)) "
-                                          "RETURN p, score",
-            tableName, tableName, tableName, bindData->query, tableName);
+        auto query =
+            common::stringFormat("MATCH (a:{}_stats) RETURN a.num_docs, a.avg_dl", tableName);
+        auto result = data.context->runQuery(query);
+        auto tuple = result->getNext();
+        auto numDocs = tuple->getValue(0)->getValue<uint64_t>();
+        auto avgDL = tuple->getValue(1)->getValue<double_t>();
+        query = common::stringFormat("PROJECT GRAPH PK ({}_dict, {}_docs, {}_terms) "
+                                     "UNWIND tokenize('{}') AS tk "
+                                     "WITH collect(stem(tk, 'porter')) AS tokens "
+                                     "MATCH (a:{}_dict) "
+                                     "WHERE list_contains(tokens, a.term) "
+                                     "CALL FTS(PK, a, 1.2, 0.75, cast({} as UINT64), {}) "
+                                     "MATCH (p:{}) "
+                                     "WHERE _node.offset = offset(id(p)) "
+                                     "RETURN p, score",
+            tableName, tableName, tableName, bindData->query, tableName, numDocs, avgDL, tableName);
         localState->result = data.context->runQuery(query);
     }
-    if (localState->numRowsOutput >=
-        data.bindData->constPtrCast<CallTableFuncBindData>()->maxOffset) {
+    auto resultSize = localState->result->getNumTuples();
+    if (localState->numRowsOutput >= resultSize) {
         return 0;
     }
     auto resultTable = localState->result->getTable();

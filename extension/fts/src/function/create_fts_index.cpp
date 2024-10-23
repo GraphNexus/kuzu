@@ -144,9 +144,12 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
     }
     auto context = data.context;
     auto tableName = bindData->tableName;
-    std::string query = "CREATE MACRO tokenize(query) AS "
-                        "string_split(regexp_replace(CAST(query as STRING), "
-                        "'[0-9!@#$%^&*()_+={}\[\]:;<>,.?~\/\|\\'\"-]+', ' '), ' ');";
+    std::string query = R"(CREATE MACRO tokenize(query) AS
+                        string_split(lower(regexp_replace(
+                        CAST(query as STRING),
+                        '[0-9!@#$%^&*()_+={}\\[\\]:;<>,.?~\\\\/\\|\'"`-]+',
+                        ' ',
+                        'g')), ' ');)";
     context->runQuery(query);
     query = common::stringFormat("CREATE NODE TABLE {}_stopwords (sw STRING, PRIMARY KEY(sw));",
         tableName);
@@ -177,11 +180,10 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
         "CREATE NODE TABLE {}_docs (offset INT64, len UINT64, primary key(offset))", tableName);
     context->runQuery(query);
     query = common::stringFormat("COPY {}_docs FROM "
-                                 "(MATCH (n:{}), (t:{}_terms_list) "
-                                 "WHERE OFFSET(ID(n)) = t.offset "
-                                 "RETURN OFFSET(ID(n)), CAST(count(t) AS UINT64) "
-                                 "ORDER BY OFFSET(ID(n)));",
-        tableName, tableName, tableName);
+                                 "(MATCH (t:{}_terms_list) "
+                                 "RETURN t.offset, CAST(count(t) AS UINT64) "
+                                 "ORDER BY t.offset);",
+        tableName, tableName);
     context->runQuery(query);
     query = common::stringFormat(
         "CREATE NODE TABLE {}_dict (term STRING, df UINT64, PRIMARY KEY(term))", tableName);
@@ -198,6 +200,15 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
     query = common::stringFormat("COPY {}_terms FROM ("
                                  "MATCH (b:{}_terms_list) "
                                  "RETURN b.term, b.offset, CAST(count(*) as UINT64));",
+        tableName, tableName);
+    context->runQuery(query);
+    query = common::stringFormat(
+        "CREATE NODE TABLE {}_stats (ID SERIAL, num_docs UINT64, avg_dl DOUBLE, PRIMARY KEY(ID));",
+        tableName);
+    context->runQuery(query);
+    query = common::stringFormat("COPY {}_stats FROM (MATCH (d:{}_docs) "
+                                 "RETURN CAST(count(d) AS UINT64), "
+                                 "CAST(SUM(d.len) AS DOUBLE) / CAST(COUNT(d.len) AS DOUBLE));",
         tableName, tableName);
     context->runQuery(query);
     return 1;
