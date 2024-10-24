@@ -3,10 +3,6 @@
 #include "kuzu.hpp"
 using namespace kuzu::main;
 
-void setupDuckdb() {
-
-}
-
 int main() {
     auto database = std::make_unique<Database>("" /* fill db path */);
     auto connection = std::make_unique<Connection>(database.get());

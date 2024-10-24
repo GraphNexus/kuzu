@@ -64,6 +64,7 @@ class BoundReturnClause;
 struct ExportedTableData;
 struct BoundJoinHintNode;
 struct BoundCopyFromInfo;
+struct BoundTableFunction;
 
 // BinderScope keeps track of expressions in scope and their aliases. We maintain the order of
 // expressions in
@@ -180,6 +181,10 @@ public:
 
     /*** bind standalone call function ***/
     std::unique_ptr<BoundStatement> bindStandaloneCallFunction(const parser::Statement& statement);
+
+    /*** bind table function ***/
+    BoundTableFunction bindTableFunc(std::string tableFuncName,
+        const parser::ParsedExpression& expr, expression_vector& columns);
 
     /*** bind create macro ***/
     std::unique_ptr<BoundStatement> bindCreateMacro(const parser::Statement& statement);

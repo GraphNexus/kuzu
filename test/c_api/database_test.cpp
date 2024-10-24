@@ -115,7 +115,7 @@ TEST_F(CApiDatabaseTest, CreationHomeDir1) {
             .c_str());
     printf("%s", conn->query("attach "
                              "'/Users/z473chen/Desktop/code/kuzu/anserini/collections/"
-                             "msmarco-passage/doc-test'  as doc (dbtype duckdb);")
+                             "msmarco-passage/doc10'  as doc (dbtype duckdb);")
                      ->toString()
                      .c_str());
     printf("%s", conn->query("create node table doc (id int64, content string,"
@@ -123,7 +123,7 @@ TEST_F(CApiDatabaseTest, CreationHomeDir1) {
                      ->toString()
                      .c_str());
     printf("%s", conn->query("copy doc from (load from doc.doc return *);")->toString().c_str());
-    printf("%s", conn->query("CALL create_fts_index('doc', 'test', ['content']) RETURN *")
+    printf("%s", conn->query("CALL create_fts_index('doc', 'test', ['content'])")
                      ->toString()
                      .c_str());
 //    printf("%s", conn->query("CALL query_fts_index('doc', 'test', 'number') "

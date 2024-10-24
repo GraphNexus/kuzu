@@ -89,7 +89,7 @@ using table_func_progress_t = std::function<double(TableFuncSharedState* sharedS
 using table_func_finalize_t =
     std::function<void(processor::ExecutionContext*, TableFuncSharedState*, TableFuncLocalState*)>;
 using table_func_rewrite_t =
-    std::function<std::string(main::ClientContext&, std::vector<parser::ParsedExpression*>)>;
+    std::function<std::string(main::ClientContext&, const TableFuncBindData& bindData)>;
 
 struct KUZU_API TableFunction : public Function {
     table_func_t tableFunc;
@@ -129,6 +129,10 @@ struct KUZU_API TableFunction : public Function {
     std::string signatureToString() const override {
         return common::LogicalTypeUtils::toString(parameterTypeIDs);
     }
+
+    virtual std::unique_ptr<TableFunction> copy() const {
+        return std::make_unique<TableFunction>(*this);
+    }
 };
 
 struct StandaloneCallFunction : public TableFunction {
@@ -140,6 +144,10 @@ struct StandaloneCallFunction : public TableFunction {
         : TableFunction{std::move(name), tableFunc, bindFunc, initSharedFunc, initLocalFunc,
               std::move(inputTypes)},
           rewriteFunc{rewriteFunc} {}
+
+    std::unique_ptr<TableFunction> copy() const override {
+        return std::make_unique<StandaloneCallFunction>(*this);
+    }
 };
 
 } // namespace function

@@ -114,7 +114,7 @@ void Database::addTableFunction(std::string name, function::function_set functio
 
 void Database::addStandaloneCallFunction(std::string name,
     std::vector<std::unique_ptr<function::Function>> functionSet) {
-    catalog->addBuiltInFunction(CatalogEntryType::TABLE_FUNCTION_ENTRY, std::move(name),
+    catalog->addBuiltInFunction(CatalogEntryType::STANDALONE_TABLE_FUNCTION_ENTRY, std::move(name),
         std::move(functionSet));
 }
 

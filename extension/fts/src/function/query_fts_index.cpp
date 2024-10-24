@@ -1,5 +1,6 @@
 #include "function/query_fts_index.h"
 
+#include "binder/expression/expression_util.h"
 #include "catalog/catalog.h"
 #include "catalog/catalog_entry/node_table_catalog_entry.h"
 #include "common/exception/binder.h"
@@ -16,16 +17,18 @@ using namespace kuzu::function;
 
 struct QueryFTSBindData final : public CallTableFuncBindData {
     std::string tableName;
+    std::string indexName;
     std::string query;
 
-    QueryFTSBindData(std::string tableName, std::string query, std::vector<LogicalType> returnTypes,
-        std::vector<std::string> returnColumnNames, offset_t maxOffset)
+    QueryFTSBindData(std::string tableName, std::string indexName, std::string query,
+        std::vector<LogicalType> returnTypes, std::vector<std::string> returnColumnNames,
+        offset_t maxOffset)
         : CallTableFuncBindData{std::move(returnTypes), std::move(returnColumnNames), maxOffset},
-          tableName{std::move(tableName)}, query{std::move(query)} {}
+          tableName{std::move(tableName)}, indexName{std::move(indexName)},
+          query{std::move(query)} {}
 
     std::unique_ptr<TableFuncBindData> copy() const override {
-        return std::make_unique<QueryFTSBindData>(tableName, query, LogicalType::copy(columnTypes),
-            columnNames, maxOffset);
+        return std::make_unique<QueryFTSBindData>(*this);
     }
 };
 
@@ -57,9 +60,10 @@ static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* context,
     columnNames.push_back("node");
     columnTypes.push_back(LogicalType::DOUBLE());
     columnNames.push_back("score");
+    auto indexName = input->inputs[1].toString();
     auto query = input->inputs[2].toString();
-    return std::make_unique<QueryFTSBindData>(tableName, query, std::move(columnTypes),
-        std::move(columnNames), 1);
+    return std::make_unique<QueryFTSBindData>(std::move(tableName), std::move(indexName),
+        std::move(query), std::move(columnTypes), std::move(columnNames), 1);
 }
 
 static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output) {
@@ -70,9 +74,9 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
         if (!sharedState->getMorsel().hasMoreToOutput()) {
             return 0;
         }
-        auto tableName = bindData->tableName;
+        auto tablePrefix = bindData->tableName + "_" + bindData->indexName;
         auto query =
-            common::stringFormat("MATCH (a:{}_stats) RETURN a.num_docs, a.avg_dl", tableName);
+            common::stringFormat("MATCH (a:{}_stats) RETURN a.num_docs, a.avg_dl", tablePrefix);
         auto result = data.context->runQuery(query);
         auto tuple = result->getNext();
         auto numDocs = tuple->getValue(0)->getValue<uint64_t>();
@@ -84,9 +88,10 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
                                      "WHERE list_contains(tokens, a.term) "
                                      "CALL FTS(PK, a, 1.2, 0.75, cast({} as UINT64), {}) "
                                      "MATCH (p:{}) "
-                                     "WHERE _node.offset = offset(id(p)) "
+                                     "WHERE _node.docID = offset(id(p)) "
                                      "RETURN p, score",
-            tableName, tableName, tableName, bindData->query, tableName, numDocs, avgDL, tableName);
+            tablePrefix, tablePrefix, tablePrefix, bindData->query, tablePrefix, numDocs, avgDL,
+            bindData->tableName);
         localState->result = data.context->runQuery(query);
     }
     auto resultSize = localState->result->getNumTuples();
@@ -99,8 +104,9 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
     return 1;
 }
 
-std::unique_ptr<TableFuncLocalState> initLocalState(kuzu::function::TableFunctionInitInput& input,
-    kuzu::function::TableFuncSharedState*, storage::MemoryManager*) {
+std::unique_ptr<TableFuncLocalState> initLocalState(
+    kuzu::function::TableFunctionInitInput& /*input*/, kuzu::function::TableFuncSharedState*,
+    storage::MemoryManager*) {
     return std::make_unique<QueryFTSLocalState>();
 }
 
