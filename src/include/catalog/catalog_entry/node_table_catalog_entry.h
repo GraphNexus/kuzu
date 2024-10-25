@@ -1,6 +1,7 @@
 #pragma once
 
-#include "index_catalog_entry.h"
+#include "unordered_set"
+
 #include "table_catalog_entry.h"
 
 namespace kuzu {
@@ -29,11 +30,9 @@ public:
         return getProperty(primaryKeyName);
     }
 
-    void addIndex(std::string name) {
-        indexes.emplace(name, std::make_unique<IndexCatalogEntry>(name, getTableID()));
-    }
+    void addIndex(std::string name) { indexes.insert(std::move(name)); }
 
-    bool containsIndex(std::string name) { return indexes.contains(name); }
+    bool containsIndex(std::string name) const { return indexes.contains(name); }
 
     void dropIndex(std::string name) { indexes.erase(name); }
 
@@ -52,7 +51,7 @@ private:
 
 private:
     std::string primaryKeyName;
-    common::case_insensitive_map_t<std::unique_ptr<IndexCatalogEntry>> indexes;
+    common::case_insensitve_set_t indexes;
 };
 
 } // namespace catalog

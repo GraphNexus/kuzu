@@ -2,9 +2,9 @@
 
 #include "binder/expression/expression_util.h"
 #include "catalog/catalog.h"
-#include "catalog/catalog_entry/node_table_catalog_entry.h"
 #include "common/exception/binder.h"
 #include "fts_extension.h"
+#include "function/fts_utils.h"
 #include "function/table/bind_input.h"
 #include "processor/result/factorized_table.h"
 
@@ -37,52 +37,29 @@ struct QueryFTSLocalState : public TableFuncLocalState {
     uint64_t numRowsOutput = 0;
 };
 
-static LogicalType bindNodeType(std::string tableName, ClientContext* context) {
-    if (!context->getCatalog()->containsTable(context->getTx(), tableName)) {
-        throw BinderException{common::stringFormat("Table {} does not exist.", tableName)};
-    }
+static LogicalType bindNodeType(const catalog::NodeTableCatalogEntry& entry) {
     std::vector<StructField> nodeFields;
     nodeFields.emplace_back(InternalKeyword::ID, LogicalType::INTERNAL_ID());
     nodeFields.emplace_back(InternalKeyword::LABEL, LogicalType::STRING());
-    auto tableEntry = context->getCatalog()->getTableCatalogEntry(context->getTx(), tableName);
-    for (auto& property : tableEntry->getProperties()) {
+    for (auto& property : entry.getProperties()) {
         nodeFields.emplace_back(property.getName(), property.getType().copy());
     }
     return LogicalType::NODE(std::make_unique<StructTypeInfo>(std::move(nodeFields)));
-}
-
-static void validateTableType(catalog::TableCatalogEntry* tableCatalogEntry) {
-    if (tableCatalogEntry->getTableType() != common::TableType::NODE) {
-        throw common::BinderException{common::stringFormat(
-            "Table: {} is not a node table. Can only run full text search on node tables.",
-            tableCatalogEntry->getName())};
-    }
-}
-
-static void validateIndexExistence(catalog::NodeTableCatalogEntry* nodeTableCatalogEntry,
-    std::string indexName) {
-    if (!nodeTableCatalogEntry->containsIndex(indexName)) {
-        throw common::BinderException{
-            common::stringFormat("Index: {} has not been built on table: {}.",
-                nodeTableCatalogEntry->getName(), indexName)};
-    }
 }
 
 static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* context,
     ScanTableFuncBindInput* input) {
     std::vector<std::string> columnNames;
     std::vector<LogicalType> columnTypes;
-    auto tableName = input->inputs[0].toString();
-    auto tableEntry = context->getCatalog()->getTableCatalogEntry(context->getTx(), tableName);
-    validateTableType(tableEntry);
+    auto& tableEntry = FTSUtils::bindTable(input->inputs[0], context);
     auto indexName = input->inputs[1].toString();
     auto query = input->inputs[2].toString();
-    validateIndexExistence(tableEntry->ptrCast<catalog::NodeTableCatalogEntry>(), indexName);
-    columnTypes.push_back(bindNodeType(tableName, context));
+    FTSUtils::validateIndexExistence(tableEntry, indexName);
+    columnTypes.push_back(bindNodeType(tableEntry));
     columnNames.push_back("node");
     columnTypes.push_back(LogicalType::DOUBLE());
     columnNames.push_back("score");
-    return std::make_unique<QueryFTSBindData>(std::move(tableName), std::move(indexName),
+    return std::make_unique<QueryFTSBindData>(tableEntry.getName(), std::move(indexName),
         std::move(query), std::move(columnTypes), std::move(columnNames), 1);
 }
 
@@ -100,7 +77,7 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
         auto numDocs = tuple->getValue(0)->getValue<uint64_t>();
         auto avgDL = tuple->getValue(1)->getValue<double_t>();
         query = common::stringFormat("PROJECT GRAPH PK ({}_dict, {}_docs, {}_terms) "
-                                     "UNWIND {}_tokenize('{}') AS tk "
+                                     "UNWIND tokenize('{}') AS tk "
                                      "WITH collect(stem(tk, 'porter')) AS tokens "
                                      "MATCH (a:{}_dict) "
                                      "WHERE list_contains(tokens, a.term) "
@@ -108,8 +85,8 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
                                      "MATCH (p:{}) "
                                      "WHERE _node.docID = offset(id(p)) "
                                      "RETURN p, score",
-            tablePrefix, tablePrefix, tablePrefix, tablePrefix, bindData->query, tablePrefix,
-            numDocs, avgDL, bindData->tableName);
+            tablePrefix, tablePrefix, tablePrefix, bindData->query, tablePrefix, numDocs, avgDL,
+            bindData->tableName);
         localState->result = data.context->runQuery(query);
     }
     if (localState->numRowsOutput >= localState->result->getNumTuples()) {

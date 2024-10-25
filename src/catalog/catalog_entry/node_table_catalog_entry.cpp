@@ -35,10 +35,7 @@ void NodeTableCatalogEntry::serialize(common::Serializer& serializer) const {
     TableCatalogEntry::serialize(serializer);
     serializer.writeDebuggingInfo("primaryKeyName");
     serializer.write(primaryKeyName);
-    serializer.serializeValue<uint64_t>(indexes.size());
-    for (auto& [name, index] : indexes) {
-        index->serialize(serializer);
-    }
+    serializer.serializeCaseInsensitiveSet(indexes);
 }
 
 std::unique_ptr<NodeTableCatalogEntry> NodeTableCatalogEntry::deserialize(
@@ -49,12 +46,7 @@ std::unique_ptr<NodeTableCatalogEntry> NodeTableCatalogEntry::deserialize(
     deserializer.deserializeValue(primaryKeyName);
     auto nodeTableEntry = std::make_unique<NodeTableCatalogEntry>();
     nodeTableEntry->primaryKeyName = primaryKeyName;
-    uint64_t numIndexes = 0u;
-    deserializer.deserializeValue(numIndexes);
-    for (auto i = 0u; i < numIndexes; i++) {
-        auto indexEntry = IndexCatalogEntry::deserialize(deserializer);
-        nodeTableEntry->indexes.emplace(indexEntry->getName(), std::move(indexEntry));
-    }
+    deserializer.deserializeCaseInsensitiveSet(nodeTableEntry->indexes);
     return nodeTableEntry;
 }
 
@@ -66,6 +58,7 @@ std::string NodeTableCatalogEntry::toCypher(main::ClientContext* /*clientContext
 std::unique_ptr<TableCatalogEntry> NodeTableCatalogEntry::copy() const {
     auto other = std::make_unique<NodeTableCatalogEntry>();
     other->primaryKeyName = primaryKeyName;
+    other->indexes = indexes;
     other->copyFrom(*this);
     return other;
 }

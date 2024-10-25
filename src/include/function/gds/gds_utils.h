@@ -16,7 +16,6 @@ namespace function {
 struct FrontierTaskSharedState;
 struct RJCompState;
 class VertexCompute;
-class FTSState;
 
 class KUZU_API GDSUtils {
 public:

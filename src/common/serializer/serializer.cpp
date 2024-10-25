@@ -20,5 +20,13 @@ void Serializer::writeDebuggingInfo(const std::string& value) {
     KU_UNUSED(value);
 }
 
+void Serializer::serializeCaseInsensitiveSet(const common::case_insensitve_set_t& values) {
+    uint64_t setSize = values.size();
+    serializeValue(setSize);
+    for (const auto& value : values) {
+        serializeValue(value);
+    }
+}
+
 } // namespace common
 } // namespace kuzu

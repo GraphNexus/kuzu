@@ -3,10 +3,10 @@
 #include "binder/ddl/bound_alter_info.h"
 #include "binder/expression/expression_util.h"
 #include "catalog/catalog.h"
-#include "catalog/catalog_entry/node_table_catalog_entry.h"
 #include "common/exception/binder.h"
 #include "common/types/value/nested.h"
 #include "fts_extension.h"
+#include "function/fts_utils.h"
 #include "function/table/bind_input.h"
 
 namespace kuzu {
@@ -31,12 +31,26 @@ struct CreateFTSBindData final : public StandaloneTableFuncBindData {
     }
 };
 
-static void validateIndexNotExist(catalog::NodeTableCatalogEntry* entry,
+static void validateIndexNotExist(const catalog::NodeTableCatalogEntry& entry,
     const std::string& indexName) {
-    if (entry->containsIndex(indexName)) {
-        throw common::BinderException{common::stringFormat(
-            "Index with name: {} already exists in table: {}.", indexName, entry->getName())};
+    if (entry.containsIndex(indexName)) {
+        throw common::BinderException{common::stringFormat("Index: {} already exists in table: {}.",
+            indexName, entry.getName())};
     }
+}
+
+static std::vector<std::string> bindProperties(const catalog::NodeTableCatalogEntry& entry,
+    const common::Value& properties) {
+    std::vector<std::string> result;
+    for (auto i = 0u; i < properties.getChildrenSize(); i++) {
+        auto propertyName = NestedVal::getChildVal(&properties, i)->toString();
+        if (!entry.containsProperty(propertyName)) {
+            throw BinderException{common::stringFormat("Property: {} does not exist in table {}.",
+                propertyName, entry.getName())};
+        }
+        result.push_back(std::move(propertyName));
+    }
+    return result;
 }
 
 static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* context,
@@ -45,21 +59,12 @@ static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* context,
     std::vector<LogicalType> columnTypes;
     columnNames.push_back("");
     columnTypes.push_back(LogicalType::STRING());
-    auto tableName = input->inputs[0].toString();
+    auto& nodeTableEntry = FTSUtils::bindTable(input->inputs[0], context);
     auto indexName = input->inputs[1].toString();
-    std::vector<std::string> properties;
-    auto& fieldsToBuildFTS = input->inputs[2];
-    for (auto i = 0u; i < fieldsToBuildFTS.getChildrenSize(); i++) {
-        properties.push_back(NestedVal::getChildVal(&fieldsToBuildFTS, i)->toString());
-    }
-    if (!context->getCatalog()->containsTable(context->getTx(), tableName)) {
-        throw BinderException{common::stringFormat("Table {} does not exist.", tableName)};
-    }
-    validateIndexNotExist(context->getCatalog()
-                              ->getTableCatalogEntry(context->getTx(), tableName)
-                              ->ptrCast<catalog::NodeTableCatalogEntry>(),
-        indexName);
-    return std::make_unique<CreateFTSBindData>(tableName, indexName, std::move(properties));
+    auto properties = bindProperties(nodeTableEntry, input->inputs[2]);
+    validateIndexNotExist(nodeTableEntry, indexName);
+    return std::make_unique<CreateFTSBindData>(nodeTableEntry.getName(), indexName,
+        std::move(properties));
 }
 
 std::string createFTSIndexQuery(ClientContext& context, const TableFuncBindData& bindData) {
@@ -78,13 +83,15 @@ std::string createFTSIndexQuery(ClientContext& context, const TableFuncBindData&
     context.getTransactionContext()->beginAutoTransaction(true /* readOnly */);
     auto tablePrefix = common::stringFormat("{}_{}", tableName, indexName);
     // Create the tokenize macro.
-    std::string query = common::stringFormat(R"(CREATE MACRO {}_tokenize(query) AS
+    std::string query = "";
+    if (!context.getCatalog()->containsMacro(context.getTx(), "tokenize")) {
+        query += R"(CREATE MACRO tokenize(query) AS
                             string_split(lower(regexp_replace(
                             CAST(query as STRING),
-                            '[0-9!@#$%^&*()_+={{}}\\[\\]:;<>,.?~\\\\/\\|\'"`-]+',
+                            '[0-9!@#$%^&*()_+={}\\[\\]:;<>,.?~\\\\/\\|\'"`-]+',
                             ' ',
-                            'g')), ' ');)",
-        tablePrefix);
+                            'g')), ' ');)";
+    }
 
     // Create the stop words table.
     query += common::stringFormat("CREATE NODE TABLE {}_stopwords (sw STRING, PRIMARY KEY(sw));",
@@ -103,13 +110,13 @@ std::string createFTSIndexQuery(ClientContext& context, const TableFuncBindData&
     for (auto& property : properties) {
         query += common::stringFormat("COPY {}_terms_in_doc FROM "
                                       "(MATCH (b:{}) "
-                                      "WITH {}_tokenize(b.{}) AS tk, OFFSET(ID(b)) AS id "
+                                      "WITH tokenize(b.{}) AS tk, OFFSET(ID(b)) AS id "
                                       "UNWIND tk AS t "
                                       "WITH t AS t1, id AS id1 "
                                       "WHERE t1 is NOT NULL AND SIZE(t1) > 0 AND "
                                       "NOT EXISTS {MATCH (s:{}_stopwords {sw: t1})} "
                                       "RETURN STEM(t1, 'porter'), id1);",
-            tablePrefix, tableName, tablePrefix, property, tablePrefix);
+            tablePrefix, tableName, property, tablePrefix);
     }
     // Create the docs table which records the number of words in each document.
     query += common::stringFormat(

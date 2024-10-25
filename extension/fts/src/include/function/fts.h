@@ -47,6 +47,9 @@ struct FTSState {
 class FTSAlgorithm : public function::GDSAlgorithm {
 public:
     static constexpr char SCORE_COLUMN_NAME[] = "score";
+    static constexpr char TERM_FREQUENCY_PROP_NAME[] = "tf";
+
+public:
     FTSAlgorithm() = default;
     FTSAlgorithm(const FTSAlgorithm& other) : GDSAlgorithm{other} {}
 

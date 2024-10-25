@@ -6,6 +6,7 @@
 #include "common/exception/binder.h"
 #include "common/types/value/nested.h"
 #include "fts_extension.h"
+#include "function/fts_utils.h"
 #include "function/table/bind_input.h"
 
 namespace kuzu {
@@ -28,15 +29,16 @@ struct DropFTSBindData final : public StandaloneTableFuncBindData {
     }
 };
 
-static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* /*context*/,
+static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* context,
     ScanTableFuncBindInput* input) {
     std::vector<std::string> columnNames;
     std::vector<LogicalType> columnTypes;
     columnNames.push_back("");
     columnTypes.push_back(LogicalType::STRING());
-    auto tableName = input->inputs[0].toString();
+    auto& tableEntry = FTSUtils::bindTable(input->inputs[0], context);
     auto indexName = input->inputs[1].toString();
-    return std::make_unique<DropFTSBindData>(tableName, indexName);
+    FTSUtils::validateIndexExistence(tableEntry, indexName);
+    return std::make_unique<DropFTSBindData>(tableEntry.getName(), indexName);
 }
 
 std::string dropFTSIndexQuery(ClientContext& context, const TableFuncBindData& bindData) {
@@ -45,7 +47,11 @@ std::string dropFTSIndexQuery(ClientContext& context, const TableFuncBindData& b
     auto indexName = createFTSBindData->indexName;
     binder::BoundAlterInfo boundAlterInfo{common::AlterType::DROP_INDEX, tableName,
         std::make_unique<binder::BoundExtraIndexInfo>(indexName)};
+    context.getTransactionContext()->commit();
+    context.getTransactionContext()->beginAutoTransaction(false /* readOnly */);
     context.getCatalog()->alterTableEntry(context.getTx(), std::move(boundAlterInfo));
+    context.getTransactionContext()->commit();
+    context.getTransactionContext()->beginAutoTransaction(true /* readOnly */);
     auto tablePrefix = common::stringFormat("{}_{}", tableName, indexName);
     std::string query = common::stringFormat("DROP TABLE {}_stopwords;", tablePrefix);
     query += common::stringFormat("DROP TABLE {}_terms_in_doc;", tablePrefix);

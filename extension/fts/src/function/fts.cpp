@@ -244,7 +244,7 @@ void FTSAlgorithm::exec(processor::ExecutionContext* executionContext) {
             executionContext->clientContext->getCatalog()
                 ->getTableCatalogEntry(executionContext->clientContext->getTx(),
                     sharedState->graph->getRelTableIDs()[0])
-                ->getPropertyIdx("tf"));
+                ->getPropertyIdx(FTSAlgorithm::TERM_FREQUENCY_PROP_NAME));
     }
     FTSOutputWriter outputWriter{executionContext->clientContext->getMemoryManager(), output.get(),
         *bindData->ptrCast<FTSBindData>()};
