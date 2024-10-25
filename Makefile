@@ -230,7 +230,7 @@ shell-test:
 # parallelism.
 tidy: | allconfig java_native_header
 	run-clang-tidy -p build/release -quiet -j $(NUM_THREADS) \
-		"^$(realpath src)|$(realpath extension)|$(realpath tools)/(?!shell/linenoise.cpp)"
+		"^$(realpath src)|$(realpath extension)/(?!third_party/snowball)|$(realpath tools)/(?!shell/linenoise.cpp)"
 
 tidy-analyzer: | allconfig java_native_header
 	run-clang-tidy -config-file .clang-tidy-analyzer -p build/release -quiet -j $(NUM_THREADS) \
