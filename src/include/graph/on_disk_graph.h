@@ -143,7 +143,6 @@ private:
     const main::ClientContext& context;
     const storage::NodeTable& nodeTable;
     common::offset_t numNodesScanned;
-    common::table_id_t tableID;
     common::offset_t currentOffset;
     common::offset_t endOffsetExclusive;
 };

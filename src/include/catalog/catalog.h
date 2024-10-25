@@ -122,12 +122,6 @@ public:
     bool containsType(const transaction::Transaction* transaction,
         const std::string& typeName) const;
 
-    // ----------------------------- Indexes ----------------------------
-    void createIndex(transaction::Transaction* transaction, std::string name,
-        common::table_id_t tableID);
-    bool containsIndex(const transaction::Transaction* transaction, const std::string& indexName,
-        common::table_id_t tableID) const;
-
     // ----------------------------- Functions ----------------------------
     void addFunction(transaction::Transaction* transaction, CatalogEntryType entryType,
         std::string name, function::function_set functionSet);

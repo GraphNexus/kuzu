@@ -2,9 +2,6 @@
 
 #include "binder/binder.h"
 #include "binder/bound_standalone_call_function.h"
-#include "catalog/catalog.h"
-#include "common/enums/expression_type.h"
-#include "parser/parsed_expression_visitor.h"
 #include "parser/standalone_call_function.h"
 
 namespace kuzu {

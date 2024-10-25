@@ -4,7 +4,6 @@
 #include <iterator>
 #include <memory>
 #include <optional>
-#include <string_view>
 
 #include "common/copy_constructors.h"
 #include "common/data_chunk/sel_vector.h"

@@ -1,6 +1,5 @@
 #include "binder/binder.h"
 #include "binder/bound_standalone_call_function.h"
-#include "binder/expression/expression_util.h"
 #include "catalog/catalog.h"
 #include "common/exception/binder.h"
 #include "function/built_in_function_utils.h"

@@ -7,7 +7,7 @@ namespace parser {
 
 class StandaloneCallAnalyzer final : public StatementVisitor {
 public:
-    StandaloneCallAnalyzer(main::ClientContext* context)
+    explicit StandaloneCallAnalyzer(main::ClientContext* context)
         : StatementVisitor{context}, rewriteQuery{} {}
 
     std::string getRewriteQuery(const Statement& statement);

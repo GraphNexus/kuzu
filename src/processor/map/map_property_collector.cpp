@@ -1,8 +1,6 @@
 #include "planner/operator/sip/logical_property_collector.h"
 #include "processor/operator/gds_call.h"
 #include "processor/operator/property_collector.h"
-#include "processor/operator/scan/scan_node_table.h"
-#include "processor/operator/semi_masker.h"
 #include "processor/plan_mapper.h"
 
 using namespace kuzu::common;

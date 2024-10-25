@@ -1,6 +1,5 @@
 #include "graph/on_disk_graph.h"
 
-#include <cstdint>
 #include <memory>
 
 #include "binder/expression/property_expression.h"
@@ -310,7 +309,7 @@ OnDiskGraphVertexScanState::OnDiskGraphVertexScanState(ClientContext& context,
           context.getMemoryManager())},
       context{context},
       nodeTable{ku_dynamic_cast<const NodeTable&>(*context.getStorageManager()->getTable(tableID))},
-      numNodesScanned{0}, tableID{tableID}, currentOffset{0}, endOffsetExclusive{0} {
+      numNodesScanned{0}, currentOffset{0}, endOffsetExclusive{0} {
     std::vector<column_id_t> propertyColumnIDs;
     propertyColumnIDs.reserve(propertyNames.size());
     auto tableCatalogEntry = context.getCatalog()->getTableCatalogEntry(context.getTx(), tableID);

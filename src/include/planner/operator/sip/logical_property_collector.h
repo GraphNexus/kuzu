@@ -1,6 +1,5 @@
 #pragma once
 
-#include "common/exception/runtime.h"
 #include "planner/operator/logical_operator.h"
 
 namespace kuzu {

@@ -4,7 +4,6 @@
 #include "binder/expression/literal_expression.h"
 #include "catalog/catalog.h"
 #include "function/built_in_function_utils.h"
-#include "parser/expression/parsed_function_expression.h"
 
 using namespace kuzu::common;
 using namespace kuzu::function;
