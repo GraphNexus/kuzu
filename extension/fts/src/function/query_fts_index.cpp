@@ -37,16 +37,6 @@ struct QueryFTSLocalState : public TableFuncLocalState {
     uint64_t numRowsOutput = 0;
 };
 
-static LogicalType bindNodeType(const catalog::NodeTableCatalogEntry& entry) {
-    std::vector<StructField> nodeFields;
-    nodeFields.emplace_back(InternalKeyword::ID, LogicalType::INTERNAL_ID());
-    nodeFields.emplace_back(InternalKeyword::LABEL, LogicalType::STRING());
-    for (auto& property : entry.getProperties()) {
-        nodeFields.emplace_back(property.getName(), property.getType().copy());
-    }
-    return LogicalType::NODE(std::make_unique<StructTypeInfo>(std::move(nodeFields)));
-}
-
 static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* context,
     ScanTableFuncBindInput* input) {
     std::vector<std::string> columnNames;
@@ -55,7 +45,7 @@ static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* context,
     auto indexName = input->inputs[1].toString();
     auto query = input->inputs[2].toString();
     FTSUtils::validateIndexExistence(tableEntry, indexName);
-    columnTypes.push_back(bindNodeType(tableEntry));
+    columnTypes.push_back(common::StructType::getNodeType(tableEntry));
     columnNames.push_back("node");
     columnTypes.push_back(LogicalType::DOUBLE());
     columnNames.push_back("score");

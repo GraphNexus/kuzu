@@ -17,7 +17,10 @@ class ClientContext;
 }
 namespace processor {
 class ParquetReader;
-};
+}
+namespace catalog {
+class NodeTableCatalogEntry;
+}
 namespace common {
 
 class Serializer;
@@ -447,7 +450,7 @@ private:
     uint64_t numElements;
 };
 
-class KUZU_API StructField {
+class StructField {
 public:
     StructField() : type{LogicalType()} {}
     StructField(std::string name, LogicalType type)
@@ -475,7 +478,7 @@ private:
     LogicalType type;
 };
 
-class KUZU_API StructTypeInfo final : public ExtraTypeInfo {
+class StructTypeInfo final : public ExtraTypeInfo {
 public:
     StructTypeInfo() = default;
     explicit StructTypeInfo(std::vector<StructField>&& fields);
@@ -546,6 +549,8 @@ struct KUZU_API StructType {
     static const StructField& getField(const LogicalType& type, const std::string& key);
 
     static struct_field_idx_t getFieldIdx(const LogicalType& type, const std::string& key);
+
+    static LogicalType getNodeType(const catalog::NodeTableCatalogEntry& entry);
 };
 
 struct KUZU_API MapType {

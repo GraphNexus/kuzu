@@ -1,5 +1,7 @@
 #include "function/fts.h"
 
+#include <cmath>
+
 #include "binder/binder.h"
 #include "binder/expression/expression_util.h"
 #include "catalog/catalog.h"

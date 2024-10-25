@@ -1,7 +1,5 @@
 #pragma once
 
-#include "unordered_set"
-
 #include "table_catalog_entry.h"
 
 namespace kuzu {
