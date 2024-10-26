@@ -35,8 +35,9 @@ static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* context,
     std::vector<LogicalType> columnTypes;
     columnNames.push_back("");
     columnTypes.push_back(LogicalType::STRING());
-    auto& tableEntry = FTSUtils::bindTable(input->inputs[0], context);
     auto indexName = input->inputs[1].toString();
+    auto& tableEntry =
+        FTSUtils::bindTable(input->inputs[0], context, indexName, FTSUtils::IndexOperation::DROP);
     FTSUtils::validateIndexExistence(tableEntry, indexName);
     return std::make_unique<DropFTSBindData>(tableEntry.getName(), indexName);
 }

@@ -2,6 +2,8 @@
 
 --
 
+# These ground truth numbers were obtained from DuckDB and we double checked that
+# our results and DuckDB's results is within three decimal places.
 -CASE MS-passage-search
 -STATEMENT load extension "${KUZU_ROOT_DIRECTORY}/extension/fts/build/libfts.kuzu_extension"
 ---- ok

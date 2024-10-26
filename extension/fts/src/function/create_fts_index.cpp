@@ -55,12 +55,9 @@ static std::vector<std::string> bindProperties(const catalog::NodeTableCatalogEn
 
 static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* context,
     ScanTableFuncBindInput* input) {
-    std::vector<std::string> columnNames;
-    std::vector<LogicalType> columnTypes;
-    columnNames.push_back("");
-    columnTypes.push_back(LogicalType::STRING());
-    auto& nodeTableEntry = FTSUtils::bindTable(input->inputs[0], context);
     auto indexName = input->inputs[1].toString();
+    auto& nodeTableEntry =
+        FTSUtils::bindTable(input->inputs[0], context, indexName, FTSUtils::IndexOperation::CREATE);
     auto properties = bindProperties(nodeTableEntry, input->inputs[2]);
     validateIndexNotExist(nodeTableEntry, indexName);
     return std::make_unique<CreateFTSBindData>(nodeTableEntry.getName(), indexName,

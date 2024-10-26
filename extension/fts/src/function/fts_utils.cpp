@@ -8,7 +8,7 @@ namespace kuzu {
 namespace fts_extension {
 
 catalog::NodeTableCatalogEntry& FTSUtils::bindTable(const common::Value& tableName,
-    main::ClientContext* context) {
+    main::ClientContext* context, std::string indexName, IndexOperation operation) {
     if (!context->getCatalog()->containsTable(context->getTx(), tableName.toString())) {
         throw common::BinderException{
             common::stringFormat("Table {} does not exist.", tableName.toString())};
@@ -16,9 +16,19 @@ catalog::NodeTableCatalogEntry& FTSUtils::bindTable(const common::Value& tableNa
     auto tableEntry =
         context->getCatalog()->getTableCatalogEntry(context->getTx(), tableName.toString());
     if (tableEntry->getTableType() != common::TableType::NODE) {
-        throw common::BinderException{common::stringFormat(
-            "Table: {} is not a node table. Can only build full text search index on node tables.",
-            tableEntry->getName())};
+        switch (operation) {
+        case IndexOperation::CREATE:
+            throw common::BinderException{
+                common::stringFormat("Table: {} is not a node table. Can only build full text "
+                                     "search index on node tables.",
+                    tableEntry->getName())};
+        case IndexOperation::QUERY:
+        case IndexOperation::DROP:
+            throw common::BinderException{common::stringFormat(
+                "Table: {} doesn't have an index with name: {}. Only node tables can "
+                "have full text search indexes.",
+                tableEntry->getName(), indexName)};
+        }
     }
     auto nodeTableEntry = tableEntry->ptrCast<catalog::NodeTableCatalogEntry>();
     return *nodeTableEntry;

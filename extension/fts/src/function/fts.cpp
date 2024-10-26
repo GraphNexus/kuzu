@@ -22,60 +22,60 @@ namespace fts_extension {
 
 using namespace function;
 
-struct EdgeProp {
+struct ScoreData {
     uint64_t df;
     uint64_t tf;
 
-    EdgeProp(uint64_t df, uint64_t tf) : df{df}, tf{tf} {}
+    ScoreData(uint64_t df, uint64_t tf) : df{df}, tf{tf} {}
 };
 
-struct EdgeInfo {
+struct ScoreInfo {
     nodeID_t srcNode;
-    std::vector<EdgeProp> edgeProps;
+    std::vector<ScoreData> scoreData;
 
-    explicit EdgeInfo(nodeID_t srcNode) : srcNode{std::move(srcNode)} {}
+    explicit ScoreInfo(nodeID_t srcNode) : srcNode{std::move(srcNode)} {}
 
-    void addEdge(uint64_t df, uint64_t tf) { edgeProps.push_back(EdgeProp{df, tf}); }
+    void addEdge(uint64_t df, uint64_t tf) { scoreData.push_back(ScoreData{df, tf}); }
 };
 
 struct FTSEdgeCompute : public EdgeCompute {
     DoublePathLengthsFrontierPair* frontierPair;
-    common::node_id_map_t<EdgeInfo>* score;
+    common::node_id_map_t<ScoreInfo>* scores;
     std::mutex mtx;
-    common::node_id_map_t<uint64_t>* nodeProp;
+    common::node_id_map_t<uint64_t>* dfs;
     FTSEdgeCompute(DoublePathLengthsFrontierPair* frontierPair,
-        common::node_id_map_t<EdgeInfo>* score, common::node_id_map_t<uint64_t>* nodeProp)
-        : frontierPair{frontierPair}, score{score}, nodeProp{nodeProp} {}
+        common::node_id_map_t<ScoreInfo>* scores, common::node_id_map_t<uint64_t>* dfs)
+        : frontierPair{frontierPair}, scores{scores}, dfs{dfs} {}
 
     void edgeCompute(nodeID_t boundNodeID, std::span<const common::nodeID_t> nbrIDs,
         std::span<const relID_t>, SelectionVector& mask, bool /*isFwd*/,
         const ValueVector* edgeProp) override;
 
     std::unique_ptr<EdgeCompute> copy() override {
-        return std::make_unique<FTSEdgeCompute>(frontierPair, score, nodeProp);
+        return std::make_unique<FTSEdgeCompute>(frontierPair, scores, dfs);
     }
 };
 
 void FTSEdgeCompute::edgeCompute(nodeID_t boundNodeID, std::span<const common::nodeID_t> nbrIDs,
     std::span<const relID_t>, SelectionVector& mask, bool /*isFwd*/, const ValueVector* edgeProp) {
-    KU_ASSERT(nodeProp->contains(boundNodeID));
+    KU_ASSERT(dfs->contains(boundNodeID));
     size_t activeCount = 0;
     std::lock_guard<std::mutex> guard{mtx};
     mask.forEach([&](auto i) {
         auto nbrNodeID = nbrIDs[i];
-        auto df = nodeProp->at(boundNodeID);
+        auto df = dfs->at(boundNodeID);
         auto tf = edgeProp->getValue<uint64_t>(i);
-        if (!score->contains(nbrNodeID)) {
-            score->emplace(nbrNodeID, EdgeInfo{boundNodeID});
+        if (!scores->contains(nbrNodeID)) {
+            scores->emplace(nbrNodeID, ScoreInfo{boundNodeID});
         }
-        score->at(nbrNodeID).addEdge(df, tf);
+        scores->at(nbrNodeID).addEdge(df, tf);
         mask.getMutableBuffer()[activeCount++] = i;
     });
     mask.setToFiltered(activeCount);
 }
 
 struct FTSOutput {
-    common::node_id_map_t<EdgeInfo> score;
+    common::node_id_map_t<ScoreInfo> scores;
 
     FTSOutput() = default;
     virtual ~FTSOutput() = default;
@@ -85,74 +85,79 @@ void runFrontiersOnce(processor::ExecutionContext* executionContext, FTSState& f
     graph::Graph* graph, common::idx_t edgePropertyIndex) {
     auto frontierPair = ftsState.frontierPair.get();
     frontierPair->beginNewIteration();
-    for (auto& relTableIDInfo : graph->getRelTableIDInfos()) {
-        frontierPair->beginFrontierComputeBetweenTables(relTableIDInfo.fromNodeTableID,
-            relTableIDInfo.toNodeTableID);
-        auto sharedState = std::make_shared<FrontierTaskSharedState>(*frontierPair);
-        auto clientContext = executionContext->clientContext;
-        auto info = FrontierTaskInfo(relTableIDInfo.relTableID, graph, common::ExtendDirection::FWD,
-            *ftsState.edgeCompute, edgePropertyIndex);
-        auto maxThreads =
-            clientContext->getCurrentSetting(main::ThreadsSetting::name).getValue<uint64_t>();
-        auto task = std::make_shared<FrontierTask>(maxThreads, info, sharedState);
-        clientContext->getTaskScheduler()->scheduleTaskAndWaitOrError(task, executionContext,
-            true /* launchNewWorkerThread */);
-    }
+    auto relTableIDInfos = graph->getRelTableIDInfos();
+    auto& relTableIDInfo = relTableIDInfos[0];
+    frontierPair->beginFrontierComputeBetweenTables(relTableIDInfo.fromNodeTableID,
+        relTableIDInfo.toNodeTableID);
+    auto sharedState = std::make_shared<FrontierTaskSharedState>(*frontierPair);
+    auto clientContext = executionContext->clientContext;
+    auto info = FrontierTaskInfo(relTableIDInfo.relTableID, graph, common::ExtendDirection::FWD,
+        *ftsState.edgeCompute, edgePropertyIndex);
+    auto maxThreads =
+        clientContext->getCurrentSetting(main::ThreadsSetting::name).getValue<uint64_t>();
+    auto task = std::make_shared<FrontierTask>(maxThreads, info, sharedState);
+    clientContext->getTaskScheduler()->scheduleTaskAndWaitOrError(task, executionContext,
+        true /* launchNewWorkerThread */);
 }
 
 class FTSOutputWriter {
 public:
-    FTSOutputWriter(storage::MemoryManager* mm, FTSOutput* ftsOutput, const FTSBindData& bindData)
-        : ftsOutput{std::move(ftsOutput)}, srcNodeIDVector{LogicalType::INTERNAL_ID(), mm},
-          dstNodeIDVector{LogicalType::INTERNAL_ID(), mm}, scoreVector{LogicalType::UINT64(), mm},
-          mm{mm}, bindData{bindData} {
-        auto state = DataChunkState::getSingleValueDataChunkState();
-        pos = state->getSelVector()[0];
-        srcNodeIDVector.setState(state);
-        dstNodeIDVector.setState(state);
-        scoreVector.setState(state);
-        vectors.push_back(&srcNodeIDVector);
-        vectors.push_back(&dstNodeIDVector);
-        vectors.push_back(&scoreVector);
-    }
+    FTSOutputWriter(storage::MemoryManager* mm, FTSOutput* ftsOutput, const FTSBindData& bindData);
 
-    void write(processor::FactorizedTable& fTable, nodeID_t dstNodeID, uint64_t len) {
-        bool hasScore = ftsOutput->score.contains(dstNodeID);
-        srcNodeIDVector.setNull(pos, !hasScore);
-        dstNodeIDVector.setNull(pos, !hasScore);
-        scoreVector.setNull(pos, !hasScore);
-        if (hasScore) {
-            auto edgeInfo = ftsOutput->score.at(dstNodeID);
-            double score = 0;
-            for (auto& edgeProp : edgeInfo.edgeProps) {
-                auto numDocs = bindData.numDocs;
-                auto avgDL = bindData.avgDL;
-                auto df = edgeProp.df;
-                auto tf = edgeProp.tf;
-                auto k = bindData.k;
-                auto b = bindData.b;
-                score += log10((numDocs - df + 0.5) / (df + 0.5) + 1) *
-                         ((tf * (k + 1) / (tf + k * (1 - b + b * (len / avgDL)))));
-            }
-            srcNodeIDVector.setValue(pos, edgeInfo.srcNode);
-            dstNodeIDVector.setValue(pos, dstNodeID);
-            scoreVector.setValue(pos, score);
-        }
-        fTable.append(vectors);
-    }
+    void write(processor::FactorizedTable& fTable, nodeID_t docNodeID, uint64_t len);
 
     std::unique_ptr<FTSOutputWriter> copy();
 
 private:
     FTSOutput* ftsOutput;
-    common::ValueVector srcNodeIDVector;
-    common::ValueVector dstNodeIDVector;
+    common::ValueVector termsVector;
+    common::ValueVector docsVector;
     common::ValueVector scoreVector;
     std::vector<common::ValueVector*> vectors;
     common::idx_t pos;
     storage::MemoryManager* mm;
     const FTSBindData& bindData;
 };
+
+FTSOutputWriter::FTSOutputWriter(storage::MemoryManager* mm, FTSOutput* ftsOutput,
+    const FTSBindData& bindData)
+    : ftsOutput{std::move(ftsOutput)}, termsVector{LogicalType::INTERNAL_ID(), mm},
+      docsVector{LogicalType::INTERNAL_ID(), mm}, scoreVector{LogicalType::UINT64(), mm}, mm{mm},
+      bindData{bindData} {
+    auto state = DataChunkState::getSingleValueDataChunkState();
+    pos = state->getSelVector()[0];
+    termsVector.setState(state);
+    docsVector.setState(state);
+    scoreVector.setState(state);
+    vectors.push_back(&termsVector);
+    vectors.push_back(&docsVector);
+    vectors.push_back(&scoreVector);
+}
+
+void FTSOutputWriter::write(processor::FactorizedTable& fTable, nodeID_t docNodeID, uint64_t len) {
+    bool hasScore = ftsOutput->scores.contains(docNodeID);
+    termsVector.setNull(pos, !hasScore);
+    docsVector.setNull(pos, !hasScore);
+    scoreVector.setNull(pos, !hasScore);
+    if (hasScore) {
+        auto scoreInfo = ftsOutput->scores.at(docNodeID);
+        double score = 0;
+        for (auto& scoreData : scoreInfo.scoreData) {
+            auto numDocs = bindData.numDocs;
+            auto avgDocLen = bindData.avgDocLen;
+            auto df = scoreData.df;
+            auto tf = scoreData.tf;
+            auto k = bindData.k;
+            auto b = bindData.b;
+            score += log10((numDocs - df + 0.5) / (df + 0.5) + 1) *
+                     ((tf * (k + 1) / (tf + k * (1 - b + b * (len / avgDocLen)))));
+        }
+        termsVector.setValue(pos, scoreInfo.srcNode);
+        docsVector.setValue(pos, docNodeID);
+        scoreVector.setValue(pos, score);
+    }
+    fTable.append(vectors);
+}
 
 std::unique_ptr<FTSOutputWriter> FTSOutputWriter::copy() {
     return std::make_unique<FTSOutputWriter>(mm, ftsOutput, bindData);
@@ -220,26 +225,27 @@ void runVertexComputeIteration(processor::ExecutionContext* executionContext, gr
 }
 
 void FTSAlgorithm::exec(processor::ExecutionContext* executionContext) {
-    auto tableID = sharedState->graph->getNodeTableIDs()[0];
-    if (!sharedState->getInputNodeMaskMap()->containsTableID(tableID)) {
+    auto termTableID = sharedState->graph->getNodeTableIDs()[0];
+    if (!sharedState->getInputNodeMaskMap()->containsTableID(termTableID)) {
         return;
     }
-    auto inputNodeMaskMap = sharedState->getInputNodeMaskMap();
+    auto termMask = sharedState->getInputNodeMaskMap();
     auto output = std::make_unique<FTSOutput>();
-    auto mask = inputNodeMaskMap->getOffsetMask(tableID);
-    for (auto offset = 0u; offset < sharedState->graph->getNumNodes(tableID); ++offset) {
+    auto mask = termMask->getOffsetMask(termTableID);
+    for (auto offset = 0u; offset < sharedState->graph->getNumNodes(termTableID); ++offset) {
         if (!mask->isMasked(offset)) {
             continue;
         }
-        auto sourceNodeID = nodeID_t{offset, tableID};
+        auto termNodeID = nodeID_t{offset, termTableID};
         auto frontierPair = std::make_unique<DoublePathLengthsFrontierPair>(
             sharedState->graph->getNodeTableIDAndNumNodes(),
             executionContext->clientContext->getMaxNumThreadForExec(),
             executionContext->clientContext->getMemoryManager());
-        auto edgeCompute = std::make_unique<FTSEdgeCompute>(frontierPair.get(), &output->score,
+        auto edgeCompute = std::make_unique<FTSEdgeCompute>(frontierPair.get(), &output->scores,
             sharedState->nodeProp);
         FTSState ftsState = FTSState{std::move(frontierPair), std::move(edgeCompute)};
-        ftsState.initFTSFromSource(sourceNodeID);
+        ftsState.initFTSFromSource(termNodeID);
+
         runFrontiersOnce(executionContext, ftsState, sharedState->graph.get(),
             executionContext->clientContext->getCatalog()
                 ->getTableCatalogEntry(executionContext->clientContext->getTx(),
@@ -276,9 +282,9 @@ void FTSAlgorithm::bind(const binder::expression_vector& params, binder::Binder*
     auto k = ExpressionUtil::getLiteralValue<double>(*params[2]);
     auto b = ExpressionUtil::getLiteralValue<double>(*params[3]);
     auto numDocs = ExpressionUtil::getLiteralValue<uint64_t>(*params[4]);
-    auto avgDL = ExpressionUtil::getLiteralValue<double>(*params[5]);
+    auto avgDocLen = ExpressionUtil::getLiteralValue<double>(*params[5]);
     auto nodeOutput = bindNodeOutput(binder, graphEntry);
-    bindData = std::make_unique<FTSBindData>(nodeInput, nodeOutput, k, b, numDocs, avgDL);
+    bindData = std::make_unique<FTSBindData>(nodeInput, nodeOutput, k, b, numDocs, avgDocLen);
 }
 
 function::function_set FTSFunction::getFunctionSet() {

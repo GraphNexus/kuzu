@@ -12,31 +12,32 @@ namespace kuzu {
 namespace fts_extension {
 
 struct FTSBindData final : public function::GDSBindData {
-    std::shared_ptr<binder::Expression> nodeInput;
+    std::shared_ptr<binder::Expression> terms;
+    // k: parameter controls the influence of term frequency saturation. It limits the effect of
+    // additional occurrences of a term within a document.
     double_t k;
+    // b: parameter controls the degree of length normalization by adjusting the influence of
+    // document length.
     double_t b;
     uint64_t numDocs;
-    double_t avgDL;
+    double_t avgDocLen;
 
-    FTSBindData(std::shared_ptr<binder::Expression> nodeInput,
-        std::shared_ptr<binder::Expression> nodeOutput, double_t k, double_t b, uint64_t numDocs,
-        double_t avgDL)
-        : GDSBindData{std::move(nodeOutput)}, nodeInput{std::move(nodeInput)}, k{k}, b{b},
-          numDocs{numDocs}, avgDL{avgDL} {}
+    FTSBindData(std::shared_ptr<binder::Expression> terms, std::shared_ptr<binder::Expression> docs,
+        double_t k, double_t b, uint64_t numDocs, double_t avgDocLen)
+        : GDSBindData{std::move(docs)}, terms{std::move(terms)}, k{k}, b{b}, numDocs{numDocs},
+          avgDocLen{avgDocLen} {}
     FTSBindData(const FTSBindData& other)
-        : GDSBindData{other}, nodeInput{other.nodeInput}, k{other.k}, b{other.b},
-          numDocs{other.numDocs}, avgDL{other.avgDL} {}
+        : GDSBindData{other}, terms{other.terms}, k{other.k}, b{other.b}, numDocs{other.numDocs},
+          avgDocLen{other.avgDocLen} {}
 
     bool hasNodeInput() const override { return true; }
-    std::shared_ptr<binder::Expression> getNodeInput() const override { return nodeInput; }
+    std::shared_ptr<binder::Expression> getNodeInput() const override { return terms; }
 
     std::unique_ptr<GDSBindData> copy() const override {
         return std::make_unique<FTSBindData>(*this);
     }
 };
 
-// Wrapper around the data that needs to be stored during the computation of a recursive joins
-// computation from one source. Also contains several initialization functions.
 struct FTSState {
     std::unique_ptr<function::FrontierPair> frontierPair;
     std::unique_ptr<function::EdgeCompute> edgeCompute;

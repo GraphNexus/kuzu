@@ -9,8 +9,14 @@ namespace fts_extension {
 
 struct FTSUtils {
 
+    enum class IndexOperation : uint8_t {
+        CREATE = 0,
+        QUERY = 1,
+        DROP = 2,
+    };
+
     static catalog::NodeTableCatalogEntry& bindTable(const common::Value& tableName,
-        main::ClientContext* context);
+        main::ClientContext* context, std::string indexName, IndexOperation indexOperation);
 
     static void validateIndexExistence(const catalog::NodeTableCatalogEntry& nodeTableCatalogEntry,
         std::string indexName);

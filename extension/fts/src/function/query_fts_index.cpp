@@ -41,8 +41,9 @@ static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* context,
     ScanTableFuncBindInput* input) {
     std::vector<std::string> columnNames;
     std::vector<LogicalType> columnTypes;
-    auto& tableEntry = FTSUtils::bindTable(input->inputs[0], context);
     auto indexName = input->inputs[1].toString();
+    auto& tableEntry =
+        FTSUtils::bindTable(input->inputs[0], context, indexName, FTSUtils::IndexOperation::QUERY);
     auto query = input->inputs[2].toString();
     FTSUtils::validateIndexExistence(tableEntry, indexName);
     columnTypes.push_back(common::StructType::getNodeType(tableEntry));
@@ -65,7 +66,7 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
         auto result = data.context->runQuery(query);
         auto tuple = result->getNext();
         auto numDocs = tuple->getValue(0)->getValue<uint64_t>();
-        auto avgDL = tuple->getValue(1)->getValue<double>();
+        auto avgDocLen = tuple->getValue(1)->getValue<double>();
         query = common::stringFormat("PROJECT GRAPH PK ({}_dict, {}_docs, {}_terms) "
                                      "UNWIND tokenize('{}') AS tk "
                                      "WITH collect(stem(tk, 'porter')) AS tokens "
@@ -75,7 +76,7 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
                                      "MATCH (p:{}) "
                                      "WHERE _node.docID = offset(id(p)) "
                                      "RETURN p, score",
-            tablePrefix, tablePrefix, tablePrefix, bindData->query, tablePrefix, numDocs, avgDL,
+            tablePrefix, tablePrefix, tablePrefix, bindData->query, tablePrefix, numDocs, avgDocLen,
             bindData->tableName);
         localState->result = data.context->runQuery(query);
     }
