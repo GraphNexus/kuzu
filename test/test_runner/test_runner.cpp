@@ -82,7 +82,7 @@ bool TestRunner::testStatement(TestStatement* statement, Connection& conn,
             preparedStatement = conn.prepareNoLock(parsedStatement, true, statement->encodedJoin);
         }
         // Check for wrong statements
-        ResultType resultType = statement->result[i].type;
+        ResultType resultType = statement->result[std::min(i, statement->result.size() - 1)].type;
         if (resultType != ResultType::ERROR_MSG && resultType != ResultType::ERROR_REGEX &&
             !preparedStatement->isSuccess()) {
             spdlog::error(preparedStatement->getErrorMessage());
