@@ -115,7 +115,8 @@ bool TestRunner::checkLogicalPlan(std::unique_ptr<PreparedStatement>& preparedSt
     auto result = conn.executeAndAutoCommitIfNecessaryNoLock(preparedStatement.get(), planIdx);
     // TODO(Ziyi): Our current testing framework is not able to handle multi-statements in a single
     // query.
-    TestQueryResult& testAnswer = statement->result[std::min(resultIdx, statement->result.size())];
+    TestQueryResult& testAnswer =
+        statement->result[std::min(resultIdx, statement->result.size() - 1)];
     std::string actualError;
     switch (testAnswer.type) {
     case ResultType::OK: {
