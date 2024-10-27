@@ -42,9 +42,9 @@ struct FTSState {
     std::unique_ptr<function::FrontierPair> frontierPair;
     std::unique_ptr<function::EdgeCompute> edgeCompute;
 
-    void initFTSFromSource(common::nodeID_t sourceNodeID) const {
-        frontierPair->initRJFromSource(sourceNodeID);
-    }
+    FTSState(std::unique_ptr<function::FrontierPair> frontierPair,
+        std::unique_ptr<function::EdgeCompute> edgeCompute, common::table_id_t termTableID);
+    void setNodeActive(common::nodeID_t sourceNodeID) const;
 };
 
 class FTSAlgorithm : public function::GDSAlgorithm {

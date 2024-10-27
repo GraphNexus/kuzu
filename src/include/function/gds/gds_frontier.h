@@ -152,7 +152,7 @@ public:
  *
  * However, this is not necessary and the caller can also use this to represent a single frontier.
  */
-class PathLengths : public GDSFrontier {
+class KUZU_API PathLengths : public GDSFrontier {
     friend class SinglePathLengthsFrontierPair;
 
 public:

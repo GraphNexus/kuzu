@@ -224,6 +224,17 @@ void runVertexComputeIteration(processor::ExecutionContext* executionContext, gr
         executionContext, true /* launchNewWorkerThread */);
 }
 
+FTSState::FTSState(std::unique_ptr<function::FrontierPair> frontierPair,
+    std::unique_ptr<function::EdgeCompute> edgeCompute, common::table_id_t termTableID)
+    : frontierPair{std::move(frontierPair)}, edgeCompute{std::move(edgeCompute)} {
+    this->frontierPair->getNextFrontierUnsafe().ptrCast<PathLengths>()->fixNextFrontierNodeTable(
+        termTableID);
+}
+
+void FTSState::setNodeActive(common::nodeID_t sourceNodeID) const {
+    frontierPair->getNextFrontierUnsafe().ptrCast<PathLengths>()->setActive(sourceNodeID);
+}
+
 void FTSAlgorithm::exec(processor::ExecutionContext* executionContext) {
     auto termTableID = sharedState->graph->getNodeTableIDs()[0];
     if (!sharedState->getInputNodeMaskMap()->containsTableID(termTableID)) {
@@ -232,26 +243,26 @@ void FTSAlgorithm::exec(processor::ExecutionContext* executionContext) {
     auto termMask = sharedState->getInputNodeMaskMap();
     auto output = std::make_unique<FTSOutput>();
     auto mask = termMask->getOffsetMask(termTableID);
+    auto frontierPair = std::make_unique<DoublePathLengthsFrontierPair>(
+        sharedState->graph->getNodeTableIDAndNumNodes(),
+        executionContext->clientContext->getMaxNumThreadForExec(),
+        executionContext->clientContext->getMemoryManager());
+    auto edgeCompute = std::make_unique<FTSEdgeCompute>(frontierPair.get(), &output->scores,
+        sharedState->nodeProp);
+    FTSState ftsState = FTSState{std::move(frontierPair), std::move(edgeCompute), termTableID};
+    auto termNodeID = nodeID_t{INVALID_OFFSET, termTableID};
     for (auto offset = 0u; offset < sharedState->graph->getNumNodes(termTableID); ++offset) {
         if (!mask->isMasked(offset)) {
             continue;
         }
-        auto termNodeID = nodeID_t{offset, termTableID};
-        auto frontierPair = std::make_unique<DoublePathLengthsFrontierPair>(
-            sharedState->graph->getNodeTableIDAndNumNodes(),
-            executionContext->clientContext->getMaxNumThreadForExec(),
-            executionContext->clientContext->getMemoryManager());
-        auto edgeCompute = std::make_unique<FTSEdgeCompute>(frontierPair.get(), &output->scores,
-            sharedState->nodeProp);
-        FTSState ftsState = FTSState{std::move(frontierPair), std::move(edgeCompute)};
-        ftsState.initFTSFromSource(termNodeID);
-
-        runFrontiersOnce(executionContext, ftsState, sharedState->graph.get(),
-            executionContext->clientContext->getCatalog()
-                ->getTableCatalogEntry(executionContext->clientContext->getTx(),
-                    sharedState->graph->getRelTableIDs()[0])
-                ->getPropertyIdx(FTSAlgorithm::TERM_FREQUENCY_PROP_NAME));
+        termNodeID.offset = offset;
+        ftsState.setNodeActive(termNodeID);
     }
+    runFrontiersOnce(executionContext, ftsState, sharedState->graph.get(),
+        executionContext->clientContext->getCatalog()
+            ->getTableCatalogEntry(executionContext->clientContext->getTx(),
+                sharedState->graph->getRelTableIDs()[0])
+            ->getPropertyIdx(FTSAlgorithm::TERM_FREQUENCY_PROP_NAME));
     FTSOutputWriter outputWriter{executionContext->clientContext->getMemoryManager(), output.get(),
         *bindData->ptrCast<FTSBindData>()};
     auto ftsOutputWriterSharedState = std::make_unique<FTSOutputWriterSharedState>(
