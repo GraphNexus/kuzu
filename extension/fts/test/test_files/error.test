@@ -49,3 +49,15 @@ Binder exception: Table: person doesn't have an index with name: personIdx1.
 -STATEMENT CALL QUERY_FTS_INDEX('person', 'personIdx', 'alice') RETURN *
 ---- error
 Binder exception: Table: person doesn't have an index with name: personIdx.
+
+-LOG CreateFTSInManualTrx
+-STATEMENT BEGIN TRANSACTION
+---- ok
+-STATEMENT CALL CREATE_FTS_INDEX('person', 'otherIdx', ['fName'])
+---- error
+Binder exception: CREATE_FTS_INDEX is only supported in auto transaction mode.
+
+-LOG DropFTSInManualTrx
+-STATEMENT CALL DROP_FTS_INDEX('person1', 'contentIdx')
+---- error
+Binder exception: DROP_FTS_INDEX is only supported in auto transaction mode.

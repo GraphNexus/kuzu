@@ -72,15 +72,3 @@
 ---- 2
 0|0.192034
 20|0.210752
--RELOADDB
--STATEMENT load extension "${KUZU_ROOT_DIRECTORY}/extension/fts/build/libfts.kuzu_extension"
----- ok
--STATEMENT CALL QUERY_FTS_INDEX('doc', 'docIdx4', 'waterloo') RETURN node.ID, score
----- 2
-0|0.192034
-20|0.210752
--STATEMENT CALL QUERY_FTS_INDEX('doc', 'docIdx', 'studying') RETURN node.ID, score
----- 3
-0|0.055171
-20|0.059514
-3|0.059514

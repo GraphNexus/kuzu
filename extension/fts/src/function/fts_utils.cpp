@@ -34,12 +34,19 @@ catalog::NodeTableCatalogEntry& FTSUtils::bindTable(const common::Value& tableNa
     return *nodeTableEntry;
 }
 
-void FTSUtils::validateIndexExistence(const catalog::NodeTableCatalogEntry& nodeTableCatalogEntry,
-    std::string indexName) {
-    if (!nodeTableCatalogEntry.containsIndex(indexName)) {
+void FTSUtils::validateIndexExistence(const main::ClientContext& context,
+    common::table_id_t tableID, std::string indexName) {
+    if (!context.getCatalog()->containsIndex(context.getTx(), tableID, indexName)) {
+        auto tableName = context.getCatalog()->getTableName(context.getTx(), tableID);
+        throw common::BinderException{common::stringFormat(
+            "Table: {} doesn't have an index with name: {}.", tableName, indexName)};
+    }
+}
+
+void FTSUtils::validateAutoTrx(const main::ClientContext& context, const std::string& funcName) {
+    if (!context.getTransactionContext()->isAutoTransaction()) {
         throw common::BinderException{
-            common::stringFormat("Table: {} doesn't have an index with name: {}.",
-                nodeTableCatalogEntry.getName(), indexName)};
+            common::stringFormat("{} is only supported in auto transaction mode.", funcName)};
     }
 }
 

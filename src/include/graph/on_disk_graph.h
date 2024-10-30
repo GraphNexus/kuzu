@@ -147,7 +147,7 @@ private:
     common::offset_t endOffsetExclusive;
 };
 
-class OnDiskGraph final : public Graph {
+class KUZU_API OnDiskGraph final : public Graph {
 public:
     OnDiskGraph(main::ClientContext* context, const GraphEntry& entry);
 

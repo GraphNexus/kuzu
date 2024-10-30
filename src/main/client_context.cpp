@@ -395,14 +395,13 @@ std::vector<std::shared_ptr<Statement>> ClientContext::parseQuery(std::string_vi
         StandaloneCallAnalyzer standaloneCallAnalyzer{this};
         for (auto i = 0u; i < parsedStatements.size(); i++) {
             auto rewriteQuery = standaloneCallAnalyzer.getRewriteQuery(*parsedStatements[i]);
-            if (rewriteQuery.empty()) {
-                statements.push_back(parsedStatements[i]);
-            } else {
+            if (!rewriteQuery.empty()) {
                 auto rewrittenStatements = Parser::parseQuery(rewriteQuery, this);
                 for (auto& statement : rewrittenStatements) {
                     statements.push_back(statement);
                 }
             }
+            statements.push_back(parsedStatements[i]);
         }
     } catch (std::exception& exception) {
         if (startNewTrx) {

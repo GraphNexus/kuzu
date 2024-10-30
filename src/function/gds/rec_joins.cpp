@@ -31,8 +31,8 @@ PathsOutputWriterInfo RJBindData::getPathWriterInfo() const {
 RJCompState::RJCompState(std::unique_ptr<function::FrontierPair> frontierPair,
     std::unique_ptr<function::EdgeCompute> edgeCompute, std::unique_ptr<RJOutputs> outputs,
     std::unique_ptr<RJOutputWriter> outputWriter)
-    : frontierPair{std::move(frontierPair)}, edgeCompute{std::move(edgeCompute)},
-      outputs{std::move(outputs)}, outputWriter{std::move(outputWriter)} {}
+    : GDSComputeState{std::move(frontierPair), std::move(edgeCompute)}, outputs{std::move(outputs)},
+      outputWriter{std::move(outputWriter)} {}
 
 void RJAlgorithm::validateLowerUpperBound(int64_t lowerBound, int64_t upperBound) {
     if (lowerBound < 0 || upperBound < 0) {

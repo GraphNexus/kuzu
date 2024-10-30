@@ -18,8 +18,10 @@ struct FTSUtils {
     static catalog::NodeTableCatalogEntry& bindTable(const common::Value& tableName,
         main::ClientContext* context, std::string indexName, IndexOperation indexOperation);
 
-    static void validateIndexExistence(const catalog::NodeTableCatalogEntry& nodeTableCatalogEntry,
-        std::string indexName);
+    static void validateIndexExistence(const main::ClientContext& context,
+        common::table_id_t tableID, std::string indexName);
+
+    static void validateAutoTrx(const main::ClientContext& context, const std::string& funcName);
 };
 
 } // namespace fts_extension

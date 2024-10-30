@@ -2,11 +2,16 @@
 
 #include "binder/expression/expression_util.h"
 #include "catalog/catalog.h"
+#include "catalog/fts_index_catalog_entry.h"
 #include "common/exception/binder.h"
 #include "fts_extension.h"
+#include "function/fts_bind_data.h"
 #include "function/fts_utils.h"
 #include "function/table/bind_input.h"
+#include "processor/execution_context.h"
 #include "processor/result/factorized_table.h"
+#include "storage/storage_manager.h"
+#include "storage/store/node_table.h"
 
 namespace kuzu {
 namespace fts_extension {
@@ -15,17 +20,16 @@ using namespace kuzu::common;
 using namespace kuzu::main;
 using namespace kuzu::function;
 
-struct QueryFTSBindData final : public CallTableFuncBindData {
-    std::string tableName;
-    std::string indexName;
+struct QueryFTSBindData final : public FTSBindData {
     std::string query;
+    const FTSIndexCatalogEntry& entry;
 
-    QueryFTSBindData(std::string tableName, std::string indexName, std::string query,
-        std::vector<LogicalType> returnTypes, std::vector<std::string> returnColumnNames,
-        offset_t maxOffset)
-        : CallTableFuncBindData{std::move(returnTypes), std::move(returnColumnNames), maxOffset},
-          tableName{std::move(tableName)}, indexName{std::move(indexName)},
-          query{std::move(query)} {}
+    QueryFTSBindData(std::string tableName, common::table_id_t tableID, std::string indexName,
+        std::string query, const FTSIndexCatalogEntry& entry, std::vector<LogicalType> returnTypes,
+        std::vector<std::string> returnColumnNames)
+        : FTSBindData{std::move(tableName), tableID, std::move(indexName), std::move(returnTypes),
+              std::move(returnColumnNames)},
+          query{std::move(query)}, entry{entry} {}
 
     std::unique_ptr<TableFuncBindData> copy() const override {
         return std::make_unique<QueryFTSBindData>(*this);
@@ -45,13 +49,16 @@ static std::unique_ptr<TableFuncBindData> bindFunc(ClientContext* context,
     auto& tableEntry =
         FTSUtils::bindTable(input->inputs[0], context, indexName, FTSUtils::IndexOperation::QUERY);
     auto query = input->inputs[2].toString();
-    FTSUtils::validateIndexExistence(tableEntry, indexName);
+    FTSUtils::validateIndexExistence(*context, tableEntry.getTableID(), indexName);
+    auto ftsCatalogEntry =
+        context->getCatalog()->getIndex(context->getTx(), tableEntry.getTableID(), indexName);
     columnTypes.push_back(common::StructType::getNodeType(tableEntry));
     columnNames.push_back("node");
     columnTypes.push_back(LogicalType::DOUBLE());
     columnNames.push_back("score");
-    return std::make_unique<QueryFTSBindData>(tableEntry.getName(), std::move(indexName),
-        std::move(query), std::move(columnTypes), std::move(columnNames), 1);
+    return std::make_unique<QueryFTSBindData>(tableEntry.getName(), tableEntry.getTableID(),
+        std::move(indexName), std::move(query), ftsCatalogEntry->constCast<FTSIndexCatalogEntry>(),
+        std::move(columnTypes), std::move(columnNames));
 }
 
 static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output) {
@@ -60,25 +67,21 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
     auto localState = data.localState->ptrCast<QueryFTSLocalState>();
     if (localState->result == nullptr) {
         auto bindData = data.bindData->constPtrCast<QueryFTSBindData>();
-        auto tablePrefix = bindData->tableName + "_" + bindData->indexName;
-        auto query =
-            common::stringFormat("MATCH (a:{}_stats) RETURN a.num_docs, a.avg_dl", tablePrefix);
-        auto result = data.context->runQuery(query);
-        auto tuple = result->getNext();
-        auto numDocs = tuple->getValue(0)->getValue<uint64_t>();
-        auto avgDocLen = tuple->getValue(1)->getValue<double>();
-        query = common::stringFormat("PROJECT GRAPH PK ({}_dict, {}_docs, {}_terms) "
-                                     "UNWIND tokenize('{}') AS tk "
-                                     "WITH collect(stem(tk, 'porter')) AS tokens "
-                                     "MATCH (a:{}_dict) "
-                                     "WHERE list_contains(tokens, a.term) "
-                                     "CALL FTS(PK, a, 1.2, 0.75, cast({} as UINT64), {}) "
-                                     "MATCH (p:{}) "
-                                     "WHERE _node.docID = offset(id(p)) "
-                                     "RETURN p, score",
-            tablePrefix, tablePrefix, tablePrefix, bindData->query, tablePrefix, numDocs, avgDocLen,
-            bindData->tableName);
-        localState->result = data.context->runQuery(query);
+        auto numDocs = bindData->entry.getNumDocs();
+        auto avgDocLen = bindData->entry.getAvgDocLen();
+        auto query = common::stringFormat("PROJECT GRAPH PK (`{}`, `{}`, `{}`) "
+                                          "UNWIND tokenize('{}') AS tk "
+                                          "WITH collect(stem(tk, 'porter')) AS tokens "
+                                          "MATCH (a:`{}`) "
+                                          "WHERE list_contains(tokens, a.term) "
+                                          "CALL FTS(PK, a, 1.2, 0.75, cast({} as UINT64), {}) "
+                                          "MATCH (p:`{}`) "
+                                          "WHERE _node.docID = offset(id(p)) "
+                                          "RETURN p, score",
+            bindData->getDictTableName(), bindData->getDocTableName(),
+            bindData->getTermsTableName(), bindData->query, bindData->getDictTableName(), numDocs,
+            avgDocLen, bindData->tableName);
+        localState->result = data.context->clientContext->runQuery(query);
     }
     if (localState->numRowsOutput >= localState->result->getNumTuples()) {
         return 0;

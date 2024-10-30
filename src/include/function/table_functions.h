@@ -9,9 +9,6 @@ namespace kuzu {
 namespace parser {
 class ParsedExpression;
 }
-namespace main {
-class ClientContext;
-}
 
 namespace processor {
 struct ExecutionContext;
@@ -44,11 +41,11 @@ struct TableFuncInput {
     TableFuncBindData* bindData;
     TableFuncLocalState* localState;
     TableFuncSharedState* sharedState;
-    main::ClientContext* context;
+    processor::ExecutionContext* context;
 
     TableFuncInput() = default;
     TableFuncInput(TableFuncBindData* bindData, TableFuncLocalState* localState,
-        TableFuncSharedState* sharedState, main::ClientContext* context)
+        TableFuncSharedState* sharedState, processor::ExecutionContext* context)
         : bindData{bindData}, localState{localState}, sharedState{sharedState}, context{context} {}
     DELETE_COPY_DEFAULT_MOVE(TableFuncInput);
 };

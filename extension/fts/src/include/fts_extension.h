@@ -12,7 +12,6 @@ public:
 public:
     static void load(main::ClientContext* context);
 
-    // TODO(Ziyi): Stop words should be defined in a text file.
     static constexpr const char* STOP_WORDS[] = {"a", "a's", "able", "about", "above", "according",
         "accordingly", "across", "actually", "after", "afterwards", "again", "against", "ain't",
         "all", "allow", "allows", "almost", "alone", "along", "already", "also", "although",
