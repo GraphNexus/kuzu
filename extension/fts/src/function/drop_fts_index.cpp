@@ -31,9 +31,9 @@ std::string dropFTSIndexQuery(ClientContext& /*context*/, const TableFuncBindDat
     auto ftsBindData = bindData.constPtrCast<FTSBindData>();
     std::string query =
         common::stringFormat("DROP TABLE `{}`;", ftsBindData->getStopWordsTableName());
+    query += common::stringFormat("DROP TABLE `{}`;", ftsBindData->getAppearsInTableName());
+    query += common::stringFormat("DROP TABLE `{}`;", ftsBindData->getDocsTableName());
     query += common::stringFormat("DROP TABLE `{}`;", ftsBindData->getTermsTableName());
-    query += common::stringFormat("DROP TABLE `{}`;", ftsBindData->getDocTableName());
-    query += common::stringFormat("DROP TABLE `{}`;", ftsBindData->getDictTableName());
     return query;
 }
 

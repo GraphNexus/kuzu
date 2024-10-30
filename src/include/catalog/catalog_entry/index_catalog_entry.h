@@ -32,7 +32,12 @@ public:
     std::string toCypher(main::ClientContext* /*clientContext*/) const override { KU_UNREACHABLE; }
     virtual std::unique_ptr<IndexCatalogEntry> copy() const = 0;
 
-    void copyFrom(const CatalogEntry& other) override;
+    void copyFrom(const CatalogEntry& other) override {
+        CatalogEntry::copyFrom(other);
+        auto& otherTable = other.constCast<IndexCatalogEntry>();
+        tableID = otherTable.tableID;
+        indexName = otherTable.indexName;
+    }
 
 protected:
     common::table_id_t tableID;

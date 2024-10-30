@@ -95,11 +95,11 @@ std::string createFTSIndexQuery(ClientContext& context, const TableFuncBindData&
 
     // Create the terms_in_doc table which servers as a temporary table to store the relationship
     // between terms and docs.
-    auto termsInDocInfoTableName = ftsBindData->getTermsInDocInfoTableName();
+    auto appearsInfoTableName = ftsBindData->getAppearsInfoTableName();
     query +=
         common::stringFormat("CREATE NODE TABLE `{}` (ID SERIAL, term string, docID INT64, primary "
                              "key(ID));",
-            termsInDocInfoTableName);
+            appearsInfoTableName);
     auto tableName = ftsBindData->tableName;
     for (auto& property : ftsBindData->properties) {
         query += common::stringFormat("COPY `{}` FROM "
@@ -110,41 +110,40 @@ std::string createFTSIndexQuery(ClientContext& context, const TableFuncBindData&
                                       "WHERE t1 is NOT NULL AND SIZE(t1) > 0 AND "
                                       "NOT EXISTS {MATCH (s:`{}` {sw: t1})} "
                                       "RETURN STEM(t1, 'porter'), id1);",
-            termsInDocInfoTableName, tableName, property, stopWordsTableName);
+            appearsInfoTableName, tableName, property, stopWordsTableName);
     }
 
-    auto docTableName = ftsBindData->getDocTableName();
+    auto docsTableName = ftsBindData->getDocsTableName();
     // Create the docs table which records the number of words in each document.
     query += common::stringFormat(
-        "CREATE NODE TABLE `{}` (docID INT64, len UINT64, primary key(docID));", docTableName);
+        "CREATE NODE TABLE `{}` (docID INT64, len UINT64, primary key(docID));", docsTableName);
     query += common::stringFormat("COPY `{}` FROM "
                                   "(MATCH (t:`{}`) "
-                                  "RETURN t.docID, CAST(count(t) AS UINT64) "
-                                  "ORDER BY t.docID);",
-        docTableName, termsInDocInfoTableName);
+                                  "RETURN t.docID, CAST(count(t) AS UINT64)); ",
+        docsTableName, appearsInfoTableName);
 
-    auto dictTableName = ftsBindData->getDictTableName();
+    auto termsTableName = ftsBindData->getTermsTableName();
     // Create the dic table which records all distinct terms and their document frequency.
     query += common::stringFormat(
-        "CREATE NODE TABLE `{}` (term STRING, df UINT64, PRIMARY KEY(term));", dictTableName);
+        "CREATE NODE TABLE `{}` (term STRING, df UINT64, PRIMARY KEY(term));", termsTableName);
     query += common::stringFormat("COPY `{}` FROM "
                                   "(MATCH (t:`{}`) "
                                   "RETURN t.term, CAST(count(distinct t.docID) AS UINT64));",
-        dictTableName, termsInDocInfoTableName);
+        termsTableName, appearsInfoTableName);
 
-    auto termsTableName = ftsBindData->getTermsTableName();
+    auto appearsInTableName = ftsBindData->getAppearsInTableName();
     // Finally, create a terms table that records the documents in which the terms appear, along
     // with the frequency of each term.
     query +=
         common::stringFormat("CREATE REL TABLE `{}` (FROM `{}` TO `{}`, tf UINT64, MANY_MANY);",
-            termsTableName, dictTableName, docTableName);
+            appearsInTableName, termsTableName, docsTableName);
     query += common::stringFormat("COPY `{}` FROM ("
                                   "MATCH (b:`{}`) "
                                   "RETURN b.term, b.docID, CAST(count(*) as UINT64));",
-        termsTableName, termsInDocInfoTableName);
+        appearsInTableName, appearsInfoTableName);
 
     // Drop the intermediate terms_in_doc table.
-    query += common::stringFormat("DROP TABLE `{}`;", termsInDocInfoTableName);
+    query += common::stringFormat("DROP TABLE `{}`;", appearsInfoTableName);
     return query;
 }
 
@@ -183,10 +182,10 @@ void LenCompute::vertexCompute(std::span<const nodeID_t> nodeIDs,
 static common::offset_t tableFunc(TableFuncInput& input, TableFuncOutput& /*output*/) {
     auto& createFTSBindData = *input.bindData->constPtrCast<CreateFTSBindData>();
     auto& context = *input.context;
-    auto docTableName = createFTSBindData.getDocTableName();
-    auto tableEntry = context.clientContext->getCatalog()->getTableCatalogEntry(
+    auto docTableName = createFTSBindData.getDocsTableName();
+    auto docTableEntry = context.clientContext->getCatalog()->getTableCatalogEntry(
         context.clientContext->getTx(), docTableName);
-    graph::GraphEntry entry{{tableEntry}, {} /* relTableEntries */};
+    graph::GraphEntry entry{{docTableEntry}, {} /* relTableEntries */};
     graph::OnDiskGraph graph(context.clientContext, std::move(entry));
     auto sharedState = LenComputeSharedState{};
     LenCompute lenCompute{&sharedState};

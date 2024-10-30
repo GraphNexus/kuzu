@@ -113,11 +113,11 @@ void runFrontiersOnce(processor::ExecutionContext* executionContext, FTSState& f
     auto frontierPair = ftsState.frontierPair.get();
     frontierPair->beginNewIteration();
     auto relTableIDInfos = graph->getRelTableIDInfos();
-    auto& termsTableInfo = relTableIDInfos[0];
-    frontierPair->beginFrontierComputeBetweenTables(termsTableInfo.fromNodeTableID,
-        termsTableInfo.toNodeTableID);
-    GDSUtils::scheduleFrontierTask(termsTableInfo.relTableID, graph, ExtendDirection::FWD, ftsState,
-        executionContext, FTSAlgorithm::NUM_THREADS_FOR_EXECUTION, tfPropertyIdx);
+    auto& appearsInTableInfo = relTableIDInfos[0];
+    frontierPair->beginFrontierComputeBetweenTables(appearsInTableInfo.fromNodeTableID,
+        appearsInTableInfo.toNodeTableID);
+    GDSUtils::scheduleFrontierTask(appearsInTableInfo.relTableID, graph, ExtendDirection::FWD,
+        ftsState, executionContext, FTSAlgorithm::NUM_THREADS_FOR_EXECUTION, tfPropertyIdx);
 }
 
 class FTSOutputWriter {
@@ -235,30 +235,28 @@ void runVertexComputeIteration(processor::ExecutionContext* executionContext, gr
     auto maxThreads = executionContext->clientContext->getCurrentSetting(main::ThreadsSetting::name)
                           .getValue<uint64_t>();
     auto sharedState = std::make_shared<VertexComputeTaskSharedState>(maxThreads, graph);
-    auto docTableID = graph->getNodeTableIDs()[1];
+    auto docsTableID = graph->getNodeTableIDs()[1];
     auto info = VertexComputeTaskInfo(vc, {FTSAlgorithm::DOC_LEN_PROP_NAME});
-    GDSUtils::runVertexComputeOnTable(docTableID, graph, sharedState, info, *executionContext);
+    GDSUtils::runVertexComputeOnTable(docsTableID, graph, sharedState, info, *executionContext);
 }
 
 FTSState::FTSState(std::unique_ptr<function::FrontierPair> frontierPair,
-    std::unique_ptr<function::EdgeCompute> edgeCompute, common::table_id_t termTableID)
+    std::unique_ptr<function::EdgeCompute> edgeCompute, common::table_id_t termsTableID)
     : function::GDSComputeState{std::move(frontierPair), std::move(edgeCompute)} {
     this->frontierPair->getNextFrontierUnsafe().ptrCast<PathLengths>()->fixNextFrontierNodeTable(
-        termTableID);
+        termsTableID);
 }
 
-void FTSState::setNodeActive(common::nodeID_t termID) const {
-    frontierPair->getNextFrontierUnsafe().ptrCast<PathLengths>()->setActive(termID);
+void FTSState::setNodeActive(common::nodeID_t termNodeID) const {
+    frontierPair->getNextFrontierUnsafe().ptrCast<PathLengths>()->setActive(termNodeID);
 }
 
 void FTSAlgorithm::exec(processor::ExecutionContext* executionContext) {
-    auto termTableID = sharedState->graph->getNodeTableIDs()[0];
-    if (!sharedState->getInputNodeMaskMap()->containsTableID(termTableID)) {
-        return;
-    }
-    auto terms = sharedState->getInputNodeMaskMap();
+    auto termsTableID = sharedState->graph->getNodeTableIDs()[0];
+    KU_ASSERT(sharedState->getInputNodeMaskMap()->containsTableID(termsTableID));
+    auto inputNodeMasks = sharedState->getInputNodeMaskMap();
+    auto termsMask = inputNodeMasks->getOffsetMask(termsTableID);
     auto output = std::make_unique<FTSOutput>();
-    auto termMask = terms->getOffsetMask(termTableID);
 
     // Do edge compute to extend terms -> docs and save the term frequency and document frequency
     // for each term-doc pair. The reason why we store the term frequency and document frequency
@@ -270,10 +268,10 @@ void FTSAlgorithm::exec(processor::ExecutionContext* executionContext) {
         executionContext->clientContext->getMemoryManager());
     auto edgeCompute = std::make_unique<FTSEdgeCompute>(frontierPair.get(), &output->scores,
         sharedState->nodeProp);
-    FTSState ftsState = FTSState{std::move(frontierPair), std::move(edgeCompute), termTableID};
-    auto termNodeID = nodeID_t{INVALID_OFFSET, termTableID};
-    for (auto offset = 0u; offset < sharedState->graph->getNumNodes(termTableID); ++offset) {
-        if (!termMask->isMasked(offset)) {
+    FTSState ftsState = FTSState{std::move(frontierPair), std::move(edgeCompute), termsTableID};
+    auto termNodeID = nodeID_t{INVALID_OFFSET, termsTableID};
+    for (auto offset = 0u; offset < sharedState->graph->getNumNodes(termsTableID); ++offset) {
+        if (!termsMask->isMasked(offset)) {
             continue;
         }
         termNodeID.offset = offset;
@@ -301,10 +299,10 @@ static std::shared_ptr<Expression> getScoreColumn(Binder* binder) {
 
 binder::expression_vector FTSAlgorithm::getResultColumns(binder::Binder* binder) const {
     expression_vector columns;
-    auto& termNode = bindData->getNodeInput()->constCast<NodeExpression>();
-    columns.push_back(termNode.getInternalID());
-    auto& docNode = bindData->getNodeOutput()->constCast<NodeExpression>();
-    columns.push_back(docNode.getInternalID());
+    auto& termsNode = bindData->getNodeInput()->constCast<NodeExpression>();
+    columns.push_back(termsNode.getInternalID());
+    auto& docsNode = bindData->getNodeOutput()->constCast<NodeExpression>();
+    columns.push_back(docsNode.getInternalID());
     columns.push_back(getScoreColumn(binder));
     return columns;
 }

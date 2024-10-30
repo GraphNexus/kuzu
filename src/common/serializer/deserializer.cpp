@@ -21,15 +21,5 @@ void Deserializer::validateDebuggingInfo(std::string& value, const std::string& 
     KU_UNUSED(expectedVal);
 }
 
-void Deserializer::deserializeCaseInsensitiveSet(common::case_insensitve_set_t& values) {
-    uint64_t setSize = 0;
-    deserializeValue(setSize);
-    for (auto i = 0u; i < setSize; i++) {
-        std::string value;
-        deserializeValue(value);
-        values.insert(value);
-    }
-}
-
 } // namespace common
 } // namespace kuzu

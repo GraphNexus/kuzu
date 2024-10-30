@@ -78,9 +78,9 @@ static common::offset_t tableFunc(TableFuncInput& data, TableFuncOutput& output)
                                           "MATCH (p:`{}`) "
                                           "WHERE _node.docID = offset(id(p)) "
                                           "RETURN p, score",
-            bindData->getDictTableName(), bindData->getDocTableName(),
-            bindData->getTermsTableName(), bindData->query, bindData->getDictTableName(), numDocs,
-            avgDocLen, bindData->tableName);
+            bindData->getTermsTableName(), bindData->getDocsTableName(),
+            bindData->getAppearsInTableName(), bindData->query, bindData->getTermsTableName(),
+            numDocs, avgDocLen, bindData->tableName);
         localState->result = data.context->clientContext->runQuery(query);
     }
     if (localState->numRowsOutput >= localState->result->getNumTuples()) {

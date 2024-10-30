@@ -28,15 +28,6 @@ public:
         return getProperty(primaryKeyName);
     }
 
-    void addIndex(std::string name) { indexes.insert(std::move(name)); }
-
-    bool containsIndex(std::string name) const { return indexes.contains(name); }
-
-    void dropIndex(std::string name) { indexes.erase(name); }
-
-    std::unique_ptr<TableCatalogEntry> alter(
-        const binder::BoundAlterInfo& alterInfo) const override;
-
     void serialize(common::Serializer& serializer) const override;
     static std::unique_ptr<NodeTableCatalogEntry> deserialize(common::Deserializer& deserializer);
 
@@ -49,7 +40,6 @@ private:
 
 private:
     std::string primaryKeyName;
-    common::case_insensitve_set_t indexes;
 };
 
 } // namespace catalog

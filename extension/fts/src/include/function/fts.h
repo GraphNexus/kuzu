@@ -14,7 +14,7 @@ namespace fts_extension {
 
 struct FTSState : public function::GDSComputeState {
     FTSState(std::unique_ptr<function::FrontierPair> frontierPair,
-        std::unique_ptr<function::EdgeCompute> edgeCompute, common::table_id_t termTableID);
+        std::unique_ptr<function::EdgeCompute> edgeCompute, common::table_id_t termsTableID);
     void setNodeActive(common::nodeID_t termID) const;
 };
 

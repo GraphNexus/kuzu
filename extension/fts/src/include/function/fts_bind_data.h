@@ -25,20 +25,20 @@ struct FTSBindData : public function::CallTableFuncBindData {
         return common::stringFormat("{}_stopwords", getTablePrefix());
     }
 
-    std::string getDocTableName() const {
+    std::string getDocsTableName() const {
         return common::stringFormat("{}_docs", getTablePrefix());
     }
 
-    std::string getTermsInDocInfoTableName() const {
-        return common::stringFormat("{}_terms_in_doc", getTablePrefix());
-    }
-
-    std::string getDictTableName() const {
-        return common::stringFormat("{}_dict", getTablePrefix());
+    std::string getAppearsInfoTableName() const {
+        return common::stringFormat("{}_appears_info", getTablePrefix());
     }
 
     std::string getTermsTableName() const {
         return common::stringFormat("{}_terms", getTablePrefix());
+    }
+
+    std::string getAppearsInTableName() const {
+        return common::stringFormat("{}_appears_in", getTablePrefix());
     }
 
     std::unique_ptr<TableFuncBindData> copy() const override {
