@@ -41,7 +41,7 @@ void Stem::operation(common::ku_string_t& word, common::ku_string_t& stemmer,
     if (sbStemmer == nullptr) {
         throw common::RuntimeException(
             common::stringFormat("Unrecognized stemmer '{}'. Supported stemmers are: ['{}'], or "
-                                 "use 'none' for no stemming",
+                                 "use 'none' for no stemming.",
                 stemmer.getAsString(), getStemmerList()));
     }
 
