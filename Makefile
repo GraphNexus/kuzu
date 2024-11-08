@@ -186,7 +186,7 @@ example:
 
 extension-test-build:
 	$(call run-cmake-release, \
-		-DBUILD_EXTENSIONS="httpfs;duckdb;json;postgres;sqlite;fts" \
+		-DBUILD_EXTENSIONS="fts" \
 		-DBUILD_EXTENSION_TESTS=TRUE \
 	)
 
@@ -207,13 +207,13 @@ extension-json-test: extension-json-test-build
 
 extension-debug:
 	$(call run-cmake-debug, \
-		-DBUILD_EXTENSIONS="httpfs;duckdb;json;postgres;sqlite;fts" \
+		-DBUILD_EXTENSIONS="fts" \
 		-DBUILD_KUZU=FALSE \
 	)
 
 extension-release:
 	$(call run-cmake-release, \
-		-DBUILD_EXTENSIONS="httpfs;duckdb;json;postgres;sqlite;fts" \
+		-DBUILD_EXTENSIONS="fts" \
 		-DBUILD_KUZU=FALSE \
 	)
 

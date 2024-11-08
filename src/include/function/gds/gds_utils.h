@@ -1,5 +1,7 @@
 #pragma once
 
+#include <optional>
+
 #include "common/api.h"
 #include "common/enums/extend_direction.h"
 #include "common/types/types.h"

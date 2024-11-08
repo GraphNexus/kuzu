@@ -46,6 +46,7 @@ Catalog::Catalog(const std::string& directory, VirtualFileSystem* vfs) {
     if (!isInMemMode && vfs->fileOrPathExists(StorageUtils::getCatalogFilePath(vfs, directory,
                             FileVersionType::ORIGINAL))) {
         readFromFile(directory, vfs, FileVersionType::ORIGINAL);
+        indexes = std::make_unique<CatalogSet>();
     } else {
         tables = std::make_unique<CatalogSet>();
         sequences = std::make_unique<CatalogSet>();
