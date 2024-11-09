@@ -19,7 +19,7 @@ struct FTSBindData : public function::CallTableFuncBindData {
               1 /* maxOffset */},
           tableName{std::move(tableName)}, tableID{tableID}, indexName{std::move(indexName)} {}
 
-    std::string getTablePrefix() const { return common::stringFormat("{}_{}", tableID, indexName); }
+    std::string getTablePrefix() const { return common::stringFormat("_{}_{}", tableID, indexName); }
 
     std::string getStopWordsTableName() const {
         return common::stringFormat("{}_stopwords", getTablePrefix());
