@@ -137,6 +137,11 @@ python:
 python-debug:
 	$(call run-cmake-debug, -DBUILD_PYTHON=TRUE)
 
+wasm:
+	mkdir -p build/wasm && cd build/wasm &&\
+	emcmake cmake $(CMAKE_FLAGS) -DCMAKE_BUILD_TYPE=Release -DBUILD_WASM=TRUE -DBUILD_BENCHMARK=FALSE -DBUILD_TESTS=FALSE -DBUILD_SHELL=FALSE  ../.. && \
+	cmake --build . --config Release -j $(NUM_THREADS)
+
 rust:
 ifeq ($(OS),Windows_NT)
 	set CFLAGS=/MDd
@@ -169,7 +174,6 @@ pytest-debug: python-debug
 
 rusttest: rust
 	cd tools/rust_api && cargo test --profile=relwithdebinfo --locked --all-features -- --test-threads=12
-
 
 wasmtest:
 	mkdir -p build/wasm && cd build/wasm &&\

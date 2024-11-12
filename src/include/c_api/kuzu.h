@@ -100,10 +100,17 @@ struct ArrowArray {
 }
 #endif
 
-#ifdef __cplusplus
-#define KUZU_C_API extern "C" KUZU_API
+#ifdef __WASM__
+#include <emscripten/emscripten.h>
+#define KUZU_C_API_WASM EMSCRIPTEN_KEEPALIVE
 #else
-#define KUZU_C_API KUZU_API
+#define KUZU_C_API_WASM
+#endif
+
+#ifdef __cplusplus
+#define KUZU_C_API extern "C" KUZU_C_API_WASM KUZU_API
+#else
+#define KUZU_C_API KUZU_API KUZU_C_API_WASM
 #endif
 
 /**
