@@ -5,7 +5,8 @@ add_library(kuzu_fts_function
         query_fts_index.cpp
         drop_fts_index.cpp
         fts.cpp
-        fts_utils.cpp)
+        fts_utils.cpp
+        string_split_non_stopwords.cpp)
 
 set(FTS_OBJECT_FILES
         ${FTS_OBJECT_FILES} $<TARGET_OBJECTS:kuzu_fts_function>

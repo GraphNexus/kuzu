@@ -75,31 +75,31 @@ std::string createFTSIndexQuery(ClientContext& context, const TableFuncBindData&
     // statements in a single transaction there.
     // Create the tokenize macro.
     std::string query = "";
-    if (!context.getCatalog()->containsMacro(context.getTx(), "tokenize")) {
-        query += R"(CREATE MACRO tokenize(query) AS
-                            string_split(lower(regexp_replace(
+    if (context.getCatalog()->containsMacro(context.getTx(), "tokenize")) {
+        context.getCatalog()->dropFunction(context.getTx(), "tokenize");
+    }
+    query += R"(CREATE MACRO tokenize(query) AS
+                            string_split_non_stop_words(lower(regexp_replace(
                             CAST(query as STRING),
                             '[0-9!@#$%^&*()_+={}\\[\\]:;<>,.?~\\\\/\\|\'"`-]+',
                             ' ',
                             'g')), ' ');)";
-    }
 
-    auto stopWordsTableName = ftsBindData->getStopWordsTableName();
+    /*auto stopWordsTableName = ftsBindData->getStopWordsTableName();
     // Create the stop words table.
     query += common::stringFormat("CREATE NODE TABLE `{}` (sw STRING, PRIMARY KEY(sw));",
         stopWordsTableName);
     for (auto i = 0u; i < FTSExtension::NUM_STOP_WORDS; i++) {
         query += common::stringFormat("CREATE (s:`{}` {sw: \"{}\"});", stopWordsTableName,
             FTSExtension::STOP_WORDS[i]);
-    }
+    }*/
 
     // Create the terms_in_doc table which servers as a temporary table to store the relationship
     // between terms and docs.
     auto appearsInfoTableName = ftsBindData->getAppearsInfoTableName();
     query +=
-        common::stringFormat("CREATE NODE TABLE `{}` (ID SERIAL, term string, docID INT64, primary "
-                             "key(ID));",
-            appearsInfoTableName);
+        common::stringFormat("CREATE NODE TABLE `{}` (ID SERIAL, term string, docID INT64,"
+                             "frequency INT64, primary key(ID));", appearsInfoTableName);
     auto tableName = ftsBindData->tableName;
     for (auto& property : ftsBindData->properties) {
         query += common::stringFormat("COPY `{}` FROM "
@@ -107,10 +107,9 @@ std::string createFTSIndexQuery(ClientContext& context, const TableFuncBindData&
                                       "WITH tokenize(b.{}) AS tk, OFFSET(ID(b)) AS id "
                                       "UNWIND tk AS t "
                                       "WITH t AS t1, id AS id1 "
-                                      "WHERE t1 is NOT NULL AND SIZE(t1) > 0 AND "
-                                      "NOT EXISTS {MATCH (s:`{}` {sw: t1})} "
-                                      "RETURN STEM(t1, 'porter'), id1);",
-            appearsInfoTableName, tableName, property, stopWordsTableName);
+                                      "WHERE t1 is NOT NULL AND SIZE(t1) > 0 "
+                                      "RETURN STEM(t1, 'porter'), id1, count(*));",
+            appearsInfoTableName, tableName, property);
     }
 
     auto docsTableName = ftsBindData->getDocsTableName();
@@ -119,7 +118,7 @@ std::string createFTSIndexQuery(ClientContext& context, const TableFuncBindData&
         "CREATE NODE TABLE `{}` (docID INT64, len UINT64, primary key(docID));", docsTableName);
     query += common::stringFormat("COPY `{}` FROM "
                                   "(MATCH (t:`{}`) "
-                                  "RETURN t.docID, CAST(count(t) AS UINT64)); ",
+                                  "RETURN t.docID, CAST(sum(t.frequency) AS UINT64)); ",
         docsTableName, appearsInfoTableName);
 
     auto termsTableName = ftsBindData->getTermsTableName();
@@ -128,7 +127,7 @@ std::string createFTSIndexQuery(ClientContext& context, const TableFuncBindData&
         "CREATE NODE TABLE `{}` (term STRING, df UINT64, PRIMARY KEY(term));", termsTableName);
     query += common::stringFormat("COPY `{}` FROM "
                                   "(MATCH (t:`{}`) "
-                                  "RETURN t.term, CAST(count(distinct t.docID) AS UINT64));",
+                                  "RETURN t.term, CAST(count(t.docID) AS UINT64));",
         termsTableName, appearsInfoTableName);
 
     auto appearsInTableName = ftsBindData->getAppearsInTableName();
@@ -139,7 +138,7 @@ std::string createFTSIndexQuery(ClientContext& context, const TableFuncBindData&
             appearsInTableName, termsTableName, docsTableName);
     query += common::stringFormat("COPY `{}` FROM ("
                                   "MATCH (b:`{}`) "
-                                  "RETURN b.term, b.docID, CAST(count(*) as UINT64));",
+                                  "RETURN b.term, b.docID, CAST(sum(b.frequency) as UINT64));",
         appearsInTableName, appearsInfoTableName);
 
     // Drop the intermediate terms_in_doc table.

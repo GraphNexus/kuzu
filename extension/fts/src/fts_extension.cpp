@@ -6,6 +6,7 @@
 #include "function/fts.h"
 #include "function/query_fts_index.h"
 #include "function/stem.h"
+#include "function/string_split_non_stopwords.h"
 #include "main/client_context.h"
 #include "main/database.h"
 
@@ -15,6 +16,7 @@ namespace fts_extension {
 void FTSExtension::load(main::ClientContext* context) {
     auto& db = *context->getDatabase();
     ADD_SCALAR_FUNC(StemFunction);
+    ADD_SCALAR_FUNC(StringSplitNonStopWordsFunction);
     ADD_GDS_FUNC(FTSFunction);
     db.addStandaloneCallFunction(CreateFTSFunction::name, CreateFTSFunction::getFunctionSet());
     db.addTableFunction(QueryFTSFunction::name, QueryFTSFunction::getFunctionSet());
