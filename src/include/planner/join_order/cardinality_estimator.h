@@ -41,7 +41,12 @@ public:
         const binder::NodeExpression& boundNode, const transaction::Transaction* transaction);
 
 private:
-    cardinality_t getNodeIDDom(const std::string& nodeIDName) {
+    uint64_t atLeastOne(uint64_t x) { return x == 0 ? 1 : x; }
+
+    uint64_t getNodeIDDom(const std::string& nodeIDName) {
+        if (!nodeIDName2dom.contains(nodeIDName)) {
+            return 100;
+        }
         KU_ASSERT(nodeIDName2dom.contains(nodeIDName));
         return nodeIDName2dom.at(nodeIDName);
     }

@@ -21,6 +21,7 @@ struct CallFuncMorsel {
     }
 };
 
+// TODO(Xiyang/Ziyi): Should this be CallTableFuncSharedState?
 struct CallFuncSharedState : TableFuncSharedState {
     common::offset_t maxOffset;
     common::offset_t curOffset;
@@ -34,6 +35,8 @@ struct CallFuncSharedState : TableFuncSharedState {
 struct CallTableFuncBindData : TableFuncBindData {
     common::offset_t maxOffset;
 
+    CallTableFuncBindData(common::offset_t maxOffset)
+        : TableFuncBindData{std::vector<common::LogicalType>{}, std::vector<std::string>{}, 0}, maxOffset{maxOffset} {}
     CallTableFuncBindData(std::vector<common::LogicalType> columnTypes,
         std::vector<std::string> returnColumnNames, common::offset_t maxOffset)
         : TableFuncBindData{std::move(columnTypes), std::move(returnColumnNames), 0},
@@ -45,15 +48,6 @@ struct CallTableFuncBindData : TableFuncBindData {
     }
 };
 
-struct StandaloneTableFuncBindData : public CallTableFuncBindData {
-    StandaloneTableFuncBindData()
-        : CallTableFuncBindData{std::vector<common::LogicalType>{}, std::vector<std::string>{},
-              0 /* maxOffset */} {}
-
-    std::unique_ptr<TableFuncBindData> copy() const override {
-        return std::make_unique<StandaloneTableFuncBindData>();
-    }
-};
 
 struct KUZU_API CallFunction {
     static std::unique_ptr<TableFuncSharedState> initSharedState(TableFunctionInitInput& input);
@@ -138,6 +132,8 @@ struct ShowFunctionsFunction : public CallFunction {
 
     static function_set getFunctionSet();
 };
+
+
 
 } // namespace function
 } // namespace kuzu
