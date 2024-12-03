@@ -106,16 +106,18 @@ alldebug:
 		-DBUILD_TESTS=TRUE \
 	)
 
+build_test_debug:
+	$(call run-cmake-debug, -DBUILD_TESTS=TRUE)
 
 # Main tests
 test:
 	python3 dataset/ldbc-1/download_data.py
-	$(call run-cmake-relwithdebinfo, -DBUILD_TESTS=TRUE -DENABLE_BACKTRACES=TRUE)
+	$(call run-cmake-relwithdebinfo, -DBUILD_TESTS=TRUE)
 	ctest --test-dir build/relwithdebinfo/test --output-on-failure -j ${TEST_JOBS}
 
 lcov:
 	python3 dataset/ldbc-1/download_data.py
-	$(call run-cmake-release, -DBUILD_TESTS=TRUE -DBUILD_LCOV=TRUE)
+	$(call run-cmake-release, -DBUILD_TESTS=TRUE -DBUILD_LCOV=TRUE -DENABLE_BACKTRACES=TRUE)
 	ctest --test-dir build/release/test --output-on-failure -j ${TEST_JOBS}
 
 
