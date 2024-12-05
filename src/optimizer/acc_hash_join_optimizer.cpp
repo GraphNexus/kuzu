@@ -213,9 +213,9 @@ bool HashJoinSIPOptimizer::tryProbeToBuildHJSIP(LogicalOperator* op) {
 
 bool HashJoinSIPOptimizer::tryBuildToProbeHJSIP(LogicalOperator* op) {
     auto& hashJoin = op->cast<LogicalHashJoin>();
-    if (!subPlanContainsFilter(hashJoin.getChild(1).get())) {
-        return false;
-    }
+    // if (!subPlanContainsFilter(hashJoin.getChild(1).get())) {
+    // return false;
+    // }
     auto probeRoot = hashJoin.getChild(0);
     auto buildRoot = hashJoin.getChild(1);
     auto hasSemiMaskApplied = false;
