@@ -104,11 +104,18 @@ TEST_F(CardinalityTest, TestOperators) {
         EXPECT_GT(flatten->getCardinality(), 0);
     }
 
-    // Load From
+    // Load From Parquet
     {
         auto plan = getRoot(common::stringFormat(
             "LOAD FROM \"{}/dataset/demo-db/parquet/user.parquet\" RETURN *", KUZU_ROOT_DIRECTORY));
-        EXPECT_GT(plan->getCardinality(), 0);
+        EXPECT_EQ(4, plan->getCardinality());
+    }
+
+    // Load From Numpy
+    {
+        auto plan = getRoot(common::stringFormat(
+            "LOAD FROM \"{}/dataset/npy-1d/one_dim_int64.npy\" RETURN *", KUZU_ROOT_DIRECTORY));
+        EXPECT_EQ(3, plan->getCardinality());
     }
 }
 
