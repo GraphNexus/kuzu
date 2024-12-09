@@ -5,6 +5,7 @@
 
 #include "compute.h"
 #include "storage/buffer_manager/memory_manager.h"
+#include <span>
 
 namespace kuzu {
 namespace function {
@@ -172,7 +173,7 @@ public:
         return getCurFrontier()[offset] == curIter.load(std::memory_order_relaxed) - 1;
     }
 
-    void setActive(const std::span<const common::nodeID_t> nodeIDs) override {
+    void setActive(std::span<const common::nodeID_t> nodeIDs) override {
         auto frontierMask = getNextFrontier();
         for (const auto nodeID : nodeIDs) {
             frontierMask[nodeID.offset].store(getCurIter(), std::memory_order_relaxed);
@@ -234,6 +235,29 @@ public:
 private:
     PathLengths& pathLengths;
 };
+  
+class WCCFrontier : public GDSFrontier {
+public:
+    WCCFrontier(const common::table_id_map_t<common::offset_t>& numNodesMap_,
+        storage::MemoryManager* mm, bool inital_bool);
+
+    void setActive(std::span<const common::nodeID_t> nodeIDs) override;
+
+    uint64_t getNumNodes() { return numNodes; }
+
+    void setActive(common::nodeID_t nodeID) override { setCurActive(nodeID); }
+
+    // pinTableID and isActive is not used, most likely needs refactoring
+    void pinTableID(common::table_id_t) override {}
+    bool isActive(common::offset_t) override { return true; }
+
+private:
+    void setCurActive(common::nodeID_t nodeID);
+
+private:
+    uint64_t numNodes;
+    common::table_id_map_t<std::unique_ptr<storage::MemoryBuffer>> curActiveNodes;
+}
 
 /**
  * Base class for maintaining a current and a next GDSFrontier of nodes for GDS algorithms. At any
@@ -283,6 +307,11 @@ public:
 
     bool isCurFrontierSparse();
 
+    template<class TARGET>
+    TARGET* ptrCast() {
+        return common::ku_dynamic_cast<TARGET*>(this);
+    }
+
 protected:
     virtual void beginNewIterationInternalNoLock() {}
 
@@ -330,7 +359,7 @@ private:
     std::shared_ptr<PathLengths> pathLengths;
 };
 
-class KUZU_API DoublePathLengthsFrontierPair : public FrontierPair {
+class DoublePathLengthsFrontierPair : public FrontierPair {
 public:
     DoublePathLengthsFrontierPair(std::shared_ptr<PathLengths> curFrontier,
         std::shared_ptr<PathLengths> nextFrontier, uint64_t maxThreadsForExec)
@@ -348,6 +377,30 @@ public:
     }
 
     void beginNewIterationInternalNoLock() override;
+};
+
+class WCCFrontierPair : public FrontierPair {
+public:
+    WCCFrontierPair(common::table_id_map_t<common::offset_t> numNodesMap, uint64_t totalNumNodes,
+        uint64_t maxThreadsForExec, storage::MemoryManager* mm);
+
+    void initRJFromSource(common::nodeID_t /* source */) override { return; };
+
+    void beginNewIterationInternalNoLock() override;
+
+    uint64_t getComponentID(common::nodeID_t nodeID) const;
+
+    void beginFrontierComputeBetweenTables(common::table_id_t curTableID,
+        common::table_id_t) override;
+
+    bool update(common::nodeID_t boundNodeID, common::nodeID_t nbrNodeID);
+
+private:
+    std::atomic<uint64_t>& getComponentIDAtomic(common::nodeID_t nodeID) const;
+
+    uint64_t numNodes;
+    bool updated = false;
+    common::table_id_map_t<std::unique_ptr<storage::MemoryBuffer>> vertexValues;
 };
 
 class SPEdgeCompute : public EdgeCompute {
