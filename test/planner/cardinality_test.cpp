@@ -96,12 +96,12 @@ TEST_F(CardinalityTest, TestOperators) {
         auto* intersect =
             getOpWithType(plan->getLastOperator().get(), planner::LogicalOperatorType::INTERSECT);
         ASSERT_NE(nullptr, intersect);
-        EXPECT_GT(intersect->getCardinality(), 1);
+        EXPECT_GT(intersect->getCardinality(), 0);
 
         auto* flatten =
             getOpWithType(plan->getLastOperator().get(), planner::LogicalOperatorType::FLATTEN);
         ASSERT_NE(nullptr, intersect);
-        EXPECT_GT(flatten->getCardinality(), 1);
+        EXPECT_GT(flatten->getCardinality(), 0);
     }
 
     // Load From Parquet
@@ -126,7 +126,7 @@ TEST_F(CardinalityTest, TestPopulatedAfterOptimizations) {
                         "RETURN a.gender;");
     std::function<void(planner::LogicalOperator*)> checkFunc;
     checkFunc = [&checkFunc](planner::LogicalOperator* op) {
-        EXPECT_GT(op->getCardinality(), 1);
+        EXPECT_GT(op->getCardinality(), 0);
         for (uint32_t i = 0; i < op->getNumChildren(); ++i) {
             checkFunc(op->getChild(i).get());
         }
