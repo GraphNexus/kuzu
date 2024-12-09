@@ -322,7 +322,7 @@ static std::unique_ptr<function::TableFuncBindData> bindFunc(main::ClientContext
     const row_idx_t numTotalRows = numRows * config.getNumFiles();
     auto bindData = std::make_unique<function::ScanBindData>(std::move(resultColumnTypes),
         std::move(resultColumnNames), scanInput->config.copy(), scanInput->context);
-    bindData->estCardinality = numTotalRows;
+    bindData->cardinality = numTotalRows;
     return bindData;
 }
 

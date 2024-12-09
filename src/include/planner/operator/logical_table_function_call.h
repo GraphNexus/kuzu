@@ -16,7 +16,7 @@ public:
         std::shared_ptr<binder::Expression> offset)
         : LogicalOperator{operatorType_}, tableFunc{tableFunc}, bindData{std::move(bindData)},
           columns{std::move(columns)}, offset{std::move(offset)} {
-        cardinality = this->bindData->estCardinality;
+        cardinality = this->bindData->cardinality;
     }
 
     const function::TableFunction& getTableFunc() const { return tableFunc; }

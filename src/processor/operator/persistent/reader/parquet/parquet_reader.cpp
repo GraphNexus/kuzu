@@ -685,7 +685,7 @@ static std::unique_ptr<function::TableFuncBindData> bindFunc(main::ClientContext
     }
     auto bindData = std::make_unique<function::ScanBindData>(std::move(detectedColumnTypes),
         std::move(detectedColumnNames), scanInput->config.copy(), scanInput->context);
-    bindData->estCardinality = getNumRows(bindData.get());
+    bindData->cardinality = getNumRows(bindData.get());
     return bindData;
 }
 
