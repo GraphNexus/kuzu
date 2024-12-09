@@ -30,10 +30,7 @@ public:
         return lastOperator->getCardinality();
     }
 
-    void setCost(uint64_t cost_) {
-        KU_ASSERT(cost_ >= 1);
-        cost = cost_;
-    }
+    void setCost(uint64_t cost_) { cost = cost_; }
     uint64_t getCost() const { return cost; }
 
     std::string toString() const { return lastOperator->toString(); }

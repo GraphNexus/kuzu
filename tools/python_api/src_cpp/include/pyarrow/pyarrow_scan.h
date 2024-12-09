@@ -41,8 +41,7 @@ struct PyArrowTableScanFunctionData final : public function::TableFuncBindData {
     PyArrowTableScanFunctionData(std::vector<common::LogicalType> columnTypes,
         std::shared_ptr<ArrowSchemaWrapper> schema, std::vector<std::string> columnNames,
         std::vector<std::shared_ptr<ArrowArrayWrapper>> arrowArrayBatches, uint64_t numRows)
-        : TableFuncBindData{std::move(columnTypes), std::move(columnNames),
-              0 /* numWarningColumns */},
+        : TableFuncBindData{std::move(columnTypes), std::move(columnNames)},
           schema{std::move(schema)}, arrowArrayBatches{arrowArrayBatches}, numRows{numRows} {}
 
     ~PyArrowTableScanFunctionData() override {}
