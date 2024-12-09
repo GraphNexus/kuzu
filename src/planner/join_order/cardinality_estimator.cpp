@@ -21,6 +21,7 @@ static cardinality_t atLeastOne(uint64_t x) {
 
 void CardinalityEstimator::initNodeIDDom(const Transaction* transaction,
     const QueryGraph& queryGraph) {
+    nodeIDName2domOverride.clear();
     for (uint64_t i = 0u; i < queryGraph.getNumQueryNodes(); ++i) {
         auto node = queryGraph.getQueryNode(i).get();
         addNodeIDDomAndStats(transaction, *node->getInternalID(), node->getTableIDs());
@@ -50,6 +51,22 @@ void CardinalityEstimator::addNodeIDDomAndStats(const Transaction* transaction,
     if (!nodeIDName2dom.contains(key)) {
         nodeIDName2dom.insert({key, numNodes});
     }
+}
+
+void CardinalityEstimator::addNodeIDDomOverride(const binder::Expression& nodeID,
+    cardinality_t numNodes) {
+    const auto key = nodeID.getUniqueName();
+    if (!nodeIDName2domOverride.contains(key)) {
+        nodeIDName2domOverride.insert({key, numNodes});
+    }
+}
+
+cardinality_t CardinalityEstimator::getNodeIDDom(const std::string& nodeIDName) const {
+    if (nodeIDName2domOverride.contains(nodeIDName)) {
+        return nodeIDName2domOverride.at(nodeIDName);
+    }
+    KU_ASSERT(nodeIDName2dom.contains(nodeIDName));
+    return nodeIDName2dom.at(nodeIDName);
 }
 
 uint64_t CardinalityEstimator::estimateScanNode(const LogicalOperator& op) const {

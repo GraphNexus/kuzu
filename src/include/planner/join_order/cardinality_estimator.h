@@ -26,6 +26,7 @@ public:
         const binder::QueryGraph& queryGraph);
     void addNodeIDDomAndStats(const transaction::Transaction* transaction,
         const binder::Expression& nodeID, const std::vector<common::table_id_t>& tableIDs);
+    void addNodeIDDomOverride(const binder::Expression& nodeID, cardinality_t numNodes);
 
     cardinality_t estimateScanNode(const LogicalOperator& op) const;
     cardinality_t estimateExtend(double extensionRate, const LogicalOperator& childOp) const;
@@ -44,10 +45,7 @@ public:
         const binder::NodeExpression& boundNode, const transaction::Transaction* transaction) const;
 
 private:
-    cardinality_t getNodeIDDom(const std::string& nodeIDName) const {
-        KU_ASSERT(nodeIDName2dom.contains(nodeIDName));
-        return nodeIDName2dom.at(nodeIDName);
-    }
+    cardinality_t getNodeIDDom(const std::string& nodeIDName) const;
     cardinality_t getNumNodes(const transaction::Transaction* transaction,
         const std::vector<common::table_id_t>& tableIDs) const;
     cardinality_t getNumRels(const transaction::Transaction* transaction,
@@ -59,6 +57,8 @@ private:
     std::unordered_map<common::table_id_t, storage::TableStats> nodeTableStats;
     // The domain of nodeID is defined as the number of unique value of nodeID, i.e. num nodes.
     std::unordered_map<std::string, cardinality_t> nodeIDName2dom;
+    // per-query-graph overrides for nodeIDName2dom
+    std::unordered_map<std::string, cardinality_t> nodeIDName2domOverride;
 };
 
 } // namespace planner

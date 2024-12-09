@@ -265,7 +265,8 @@ void Planner::planNodeIDScan(uint32_t nodePos, const QueryGraphPlanningInfo& inf
     // later in the optimization stage. So we can assume the cardinality will not exceed outer
     // plan cardinality.
     if (plan->getCardinality() > info.corrExprsCard) {
-        // plan->getLastOperator()->setCardinality(info.corrExprsCard);
+        plan->getLastOperator()->setCardinality(info.corrExprsCard);
+        cardinalityEstimator.addNodeIDDomOverride(*node->getInternalID(), info.corrExprsCard);
     }
     context.addPlan(newSubgraph, std::move(plan));
 }
