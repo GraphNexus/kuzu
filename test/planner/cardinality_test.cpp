@@ -84,7 +84,7 @@ TEST_F(CardinalityTest, TestOperators) {
         auto* joinOp =
             getOpWithType(plan->getLastOperator().get(), planner::LogicalOperatorType::HASH_JOIN);
         ASSERT_NE(nullptr, joinOp);
-        EXPECT_GT(joinOp->getCardinality(), 0);
+        EXPECT_GT(joinOp->getCardinality(), 1);
     }
 
     // Intersect + Flatten
@@ -96,12 +96,12 @@ TEST_F(CardinalityTest, TestOperators) {
         auto* intersect =
             getOpWithType(plan->getLastOperator().get(), planner::LogicalOperatorType::INTERSECT);
         ASSERT_NE(nullptr, intersect);
-        EXPECT_GT(intersect->getCardinality(), 0);
+        EXPECT_GT(intersect->getCardinality(), 1);
 
         auto* flatten =
             getOpWithType(plan->getLastOperator().get(), planner::LogicalOperatorType::FLATTEN);
         ASSERT_NE(nullptr, intersect);
-        EXPECT_GT(flatten->getCardinality(), 0);
+        EXPECT_GT(flatten->getCardinality(), 1);
     }
 
     // Load From Parquet
@@ -126,11 +126,12 @@ TEST_F(CardinalityTest, TestPopulatedAfterOptimizations) {
                         "RETURN a.gender;");
     std::function<void(planner::LogicalOperator*)> checkFunc;
     checkFunc = [&checkFunc](planner::LogicalOperator* op) {
-        EXPECT_GT(op->getCardinality(), 0);
+        EXPECT_GT(op->getCardinality(), 1);
         for (uint32_t i = 0; i < op->getNumChildren(); ++i) {
             checkFunc(op->getChild(i).get());
         }
     };
+    checkFunc(plan->getLastOperator().get());
 }
 
 } // namespace testing

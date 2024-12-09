@@ -54,7 +54,12 @@ void CardinalityEstimator::addNodeIDDomAndStats(const Transaction* transaction,
 
 uint64_t CardinalityEstimator::estimateScanNode(const LogicalOperator& op) const {
     const auto& scan = op.constCast<const LogicalScanNodeTable&>();
-    return atLeastOne(getNodeIDDom(scan.getNodeID()->getUniqueName()));
+    switch (scan.getScanType()) {
+    case LogicalScanNodeTableType::PRIMARY_KEY_SCAN:
+        return 1;
+    default:
+        return atLeastOne(getNodeIDDom(scan.getNodeID()->getUniqueName()));
+    }
 }
 
 cardinality_t CardinalityEstimator::estimateExtend(double extensionRate,
