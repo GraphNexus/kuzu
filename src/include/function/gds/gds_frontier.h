@@ -221,7 +221,8 @@ private:
 
 class PathLengthsInitVertexCompute : public VertexCompute {
 public:
-    explicit PathLengthsInitVertexCompute(PathLengths& pathLengths) : pathLengths{pathLengths} {}
+    PathLengthsInitVertexCompute(PathLengths& pathLengths, uint16_t val)
+        : pathLengths{pathLengths}, val{val} {}
 
     bool beginOnTable(common::table_id_t tableID) override;
 
@@ -229,35 +230,14 @@ public:
         common::table_id_t) override;
 
     std::unique_ptr<VertexCompute> copy() override {
-        return std::make_unique<PathLengthsInitVertexCompute>(pathLengths);
+        return std::make_unique<PathLengthsInitVertexCompute>(pathLengths, val);
     }
 
 private:
     PathLengths& pathLengths;
+    uint16_t val;
 };
   
-class WCCFrontier : public GDSFrontier {
-public:
-    WCCFrontier(const common::table_id_map_t<common::offset_t>& numNodesMap_,
-        storage::MemoryManager* mm, bool inital_bool);
-
-    void setActive(std::span<const common::nodeID_t> nodeIDs) override;
-
-    uint64_t getNumNodes() { return numNodes; }
-
-    void setActive(common::nodeID_t nodeID) override { setCurActive(nodeID); }
-
-    // pinTableID and isActive is not used, most likely needs refactoring
-    void pinTableID(common::table_id_t) override {}
-    bool isActive(common::offset_t) override { return true; }
-
-private:
-    void setCurActive(common::nodeID_t nodeID);
-
-private:
-    uint64_t numNodes;
-    common::table_id_map_t<std::unique_ptr<storage::MemoryBuffer>> curActiveNodes;
-}
 
 /**
  * Base class for maintaining a current and a next GDSFrontier of nodes for GDS algorithms. At any
@@ -270,7 +250,7 @@ private:
 class KUZU_API FrontierPair {
 public:
     FrontierPair(std::shared_ptr<GDSFrontier> curFrontier,
-        std::shared_ptr<GDSFrontier> nextFrontier, uint64_t maxThreadsForExec);
+        std::shared_ptr<GDSFrontier> nextFrontier, uint64_t maxThreads);
 
     virtual ~FrontierPair() = default;
 
@@ -284,7 +264,7 @@ public:
 
     virtual void initRJFromSource(common::nodeID_t source) = 0;
 
-    void beginFrontierComputeBetweenTables(common::table_id_t curTableID,
+    virtual void beginFrontierComputeBetweenTables(common::table_id_t curTableID,
         common::table_id_t nextTableID);
 
     virtual void pinCurrFrontier(common::table_id_t tableID) = 0;
@@ -377,30 +357,6 @@ public:
     }
 
     void beginNewIterationInternalNoLock() override;
-};
-
-class WCCFrontierPair : public FrontierPair {
-public:
-    WCCFrontierPair(common::table_id_map_t<common::offset_t> numNodesMap, uint64_t totalNumNodes,
-        uint64_t maxThreadsForExec, storage::MemoryManager* mm);
-
-    void initRJFromSource(common::nodeID_t /* source */) override { return; };
-
-    void beginNewIterationInternalNoLock() override;
-
-    uint64_t getComponentID(common::nodeID_t nodeID) const;
-
-    void beginFrontierComputeBetweenTables(common::table_id_t curTableID,
-        common::table_id_t) override;
-
-    bool update(common::nodeID_t boundNodeID, common::nodeID_t nbrNodeID);
-
-private:
-    std::atomic<uint64_t>& getComponentIDAtomic(common::nodeID_t nodeID) const;
-
-    uint64_t numNodes;
-    bool updated = false;
-    common::table_id_map_t<std::unique_ptr<storage::MemoryBuffer>> vertexValues;
 };
 
 class SPEdgeCompute : public EdgeCompute {

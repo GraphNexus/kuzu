@@ -39,7 +39,7 @@ public:
         graph::Graph* graph, common::ExtendDirection extendDirection, GDSComputeState& rjCompState,
         processor::ExecutionContext* context, std::optional<uint64_t> numThreads = std::nullopt,
         std::optional<common::idx_t> edgePropertyIdx = std::nullopt);
-    static void runFrontiersUntilConvergence(processor::ExecutionContext* executionContext,
+    static void runFrontiersUntilConvergence(processor::ExecutionContext* context,
         RJCompState& rjCompState, graph::Graph* graph, common::ExtendDirection extendDirection,
         uint64_t maxIters);
     // Run vertex compute without property scan

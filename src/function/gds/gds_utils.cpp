@@ -54,7 +54,7 @@ void GDSUtils::scheduleFrontierTask(table_id_t nbrTableID, table_id_t relTableID
 }
 
 void GDSUtils::runFrontiersUntilConvergence(processor::ExecutionContext* context,
-    RJCompState& rjCompState, graph::Graph* graph, ExtendDirection extendDirection,
+    GDSComputeState& rjCompState, graph::Graph* graph, ExtendDirection extendDirection,
     uint64_t maxIters) {
     auto frontierPair = rjCompState.frontierPair.get();
     processor::NodeOffsetMaskMap* outputNodeMask = nullptr;
@@ -68,9 +68,11 @@ void GDSUtils::runFrontiersUntilConvergence(processor::ExecutionContext* context
             rjCompState.edgeCompute->terminate(*outputNodeMask)) {
             break;
         }
-        for (auto& relTableIDInfo : graph->getRelTableIDInfos()) {
+        for (auto& info : graph->getRelTableIDInfos()) {
             switch (extendDirection) {
             case ExtendDirection::FWD: {
+
+
                 rjCompState.beginFrontierComputeBetweenTables(relTableIDInfo.fromNodeTableID,
                     relTableIDInfo.toNodeTableID);
                 scheduleFrontierTask(relTableIDInfo.toNodeTableID, relTableIDInfo.relTableID, graph,
