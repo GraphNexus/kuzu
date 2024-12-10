@@ -11,8 +11,8 @@ static uint64_t runEdgeCompute(nodeID_t sourceNodeID, graph::NbrScanState::Chunk
     EdgeCompute& ec, FrontierPair& frontierPair, bool isFwd, SparseFrontier& localFrontier) {
     auto activeNodes = ec.edgeCompute(sourceNodeID, nbrChunk, isFwd);
     frontierPair.addNodesToNextDenseFrontier(activeNodes);
-    localFrontier.addNodes(activeNodes);
-    localFrontier.checkSampleSize();
+//    localFrontier.addNodes(activeNodes);
+//    localFrontier.checkSampleSize();
     return nbrChunk.size();
 }
 
@@ -95,7 +95,7 @@ void FrontierTask::runSparse() {
     }
     if (numActiveNodes) {
         sharedState->frontierPair.setActiveNodesForNextIter();
-        sharedState->frontierPair.mergeLocalFrontier(localFrontier);
+//        sharedState->frontierPair.mergeLocalFrontier(localFrontier);
     }
 }
 

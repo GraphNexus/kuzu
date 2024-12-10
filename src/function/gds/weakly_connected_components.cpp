@@ -89,6 +89,15 @@ public:
         }
     }
 
+    void vertexCompute(common::offset_t a, common::offset_t b, common::table_id_t tableID) override {
+        for (auto i = a; i < b; ++i) {
+            auto nodeID = nodeID_t {i, tableID};
+            outputWriter.materialize(nodeID,
+                compState.frontierPair->ptrCast<WCCFrontierPair>()->getComponentID(nodeID),
+                *localFT);
+        }
+    }
+
     std::unique_ptr<VertexCompute> copy() override {
         return std::make_unique<WCCVertexCompute>(mm, sharedState, compState);
     }
@@ -157,7 +166,7 @@ public:
             10);
         auto vertexCompute = std::make_unique<WCCVertexCompute>(clientContext->getMemoryManager(),
             sharedState.get(), computeState);
-        GDSUtils::runVertexComputeIteration(context, sharedState->graph.get(), *vertexCompute);
+        GDSUtils::runVertexCompute(context, sharedState->graph.get(), *vertexCompute);
         sharedState->mergeLocalTables();
     }
 

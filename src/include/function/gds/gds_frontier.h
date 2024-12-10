@@ -257,7 +257,7 @@ private:
 private:
     uint64_t numNodes;
     common::table_id_map_t<std::unique_ptr<storage::MemoryBuffer>> curActiveNodes;
-}
+};
 
 /**
  * Base class for maintaining a current and a next GDSFrontier of nodes for GDS algorithms. At any
@@ -284,11 +284,11 @@ public:
 
     virtual void initRJFromSource(common::nodeID_t source) = 0;
 
-    void beginFrontierComputeBetweenTables(common::table_id_t curTableID,
+    virtual void beginFrontierComputeBetweenTables(common::table_id_t curTableID,
         common::table_id_t nextTableID);
 
-    virtual void pinCurrFrontier(common::table_id_t tableID) = 0;
-    virtual void pinNextFrontier(common::table_id_t tableID) = 0;
+    virtual void pinCurrFrontier(common::table_id_t tableID) {};
+    virtual void pinNextFrontier(common::table_id_t tableID) {};
 
     uint16_t getCurrentIter() { return curIter.load(std::memory_order_relaxed); }
 

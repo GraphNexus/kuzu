@@ -36,10 +36,10 @@ void GDSUtils::scheduleFrontierTask(table_id_t nbrTableID, table_id_t relTableID
     uint64_t maxThreads = numThreads ? numThreads.value() : getNumThreads(*context);
     auto task = std::make_shared<FrontierTask>(maxThreads, info, sharedState);
 
-    if (gdsComputeState.frontierPair->isCurFrontierSparse()) {
-        task->runSparse();
-        return;
-    }
+//    if (gdsComputeState.frontierPair->isCurFrontierSparse()) {
+//        task->runSparse();
+//        return;
+//    }
 
     // GDSUtils::runFrontiersUntilConvergence is called from a GDSCall operator, which is
     // already executed by a worker thread Tm of the task scheduler. So this function is

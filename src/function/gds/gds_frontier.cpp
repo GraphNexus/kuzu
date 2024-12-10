@@ -241,8 +241,8 @@ WCCFrontierPair::WCCFrontierPair(common::table_id_map_t<common::offset_t> numNod
         }
         vertexValues.insert({tableID, std::move(memBuffer)});
     }
-    curFrontier = std::make_shared<WCCFrontier>(numNodesMap, mm, true);
-    nextFrontier = std::make_shared<WCCFrontier>(numNodesMap, mm, false);
+    curDenseFrontier = std::make_shared<WCCFrontier>(numNodesMap, mm, true);
+    nextDenseFrontier = std::make_shared<WCCFrontier>(numNodesMap, mm, false);
     setActiveNodesForNextIter();
 }
 
@@ -269,7 +269,7 @@ bool WCCFrontierPair::update(common::nodeID_t boundNodeID, common::nodeID_t nbrN
     // If needs changing
     if (expectedComponentID < actualComponentID) {
         updated = true;
-        nextFrontier->ptrCast<WCCFrontier>()->setActive(nbrNodeID);
+        nextDenseFrontier->ptrCast<WCCFrontier>()->setActive(nbrNodeID);
         while (!nbrComponentID.compare_exchange_strong(actualComponentID, expectedComponentID,
             std::memory_order_relaxed, std::memory_order_relaxed)) {}
         return true;
