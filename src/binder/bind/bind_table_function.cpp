@@ -48,14 +48,15 @@ BoundTableFunction Binder::bindTableFunc(std::string tableFuncName,
     bindInput.optionalParams = std::move(optionalParams);
     if (StringUtils::getUpper(func->name) == function::QueryHNSWIndexFunction::name) {
         auto nodeTableName = bindInput.inputs[1].getValue<std::string>();
-        auto nodeTableEntry = clientContext->getCatalog()->getTableCatalogEntry(clientContext->getTx(), nodeTableName);
-        bindInput.nodeExpression = createQueryNode("nn", std::vector<catalog::TableCatalogEntry*>{nodeTableEntry});
+        auto nodeTableEntry = clientContext->getCatalog()->getTableCatalogEntry(
+            clientContext->getTx(), nodeTableName);
+        bindInput.nodeExpression =
+            createQueryNode("nn", std::vector<catalog::TableCatalogEntry*>{nodeTableEntry});
         addToScope(bindInput.nodeExpression->toString(), bindInput.nodeExpression);
     }
     auto bindData = tableFunc->bindFunc(clientContext, &bindInput);
     if (StringUtils::getUpper(func->name) == function::QueryHNSWIndexFunction::name) {
         auto id = bindInput.nodeExpression->getInternalID();
-//        scope.addExpression(id->toString(), id);
         columns.push_back(id);
         for (auto i = 1u; i < bindData->columnTypes.size(); i++) {
             columns.push_back(createVariable(bindData->columnNames[i], bindData->columnTypes[i]));

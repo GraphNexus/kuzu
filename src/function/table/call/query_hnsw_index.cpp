@@ -19,9 +19,8 @@ static std::unique_ptr<TableFuncBindData> bindFunc(main::ClientContext* context,
     const auto& queryVal = input->inputs[2];
     const auto k = input->inputs[3].getValue<int64_t>();
 
-    auto catalog = context->getCatalog();
-    const auto nodeTableEntry =
-        catalog->getTableCatalogEntry(context->getTx(), tableName);
+    const auto catalog = context->getCatalog();
+    const auto nodeTableEntry = catalog->getTableCatalogEntry(context->getTx(), tableName);
     const auto indexEntry = common::ku_dynamic_cast<catalog::HNSWIndexCatalogEntry*>(
         catalog->getIndex(context->getTx(), nodeTableEntry->getTableID(), indexName));
     auto& indexColumnType = nodeTableEntry->getProperty(indexEntry->getIndexColumnName()).getType();
@@ -37,17 +36,18 @@ static std::unique_ptr<TableFuncBindData> bindFunc(main::ClientContext* context,
         queryVector[i] = common::NestedVal::getChildVal(&queryVal, i)->getValue<float>();
     }
 
-    auto storageManager = context->getStorageManager();
-    auto& nodeTable = storageManager->getTable(nodeTableEntry->getTableID())
-                          ->cast<storage::NodeTable>();
-    auto& upperRelTable = storageManager->getTable(indexEntry->getUpperRelTableID())
-                              ->cast<storage::RelTable>();
-    auto& lowerRelTable = storageManager->getTable(indexEntry->getLowerRelTableID())
-                              ->cast<storage::RelTable>();
+    const auto storageManager = context->getStorageManager();
+    auto& nodeTable =
+        storageManager->getTable(nodeTableEntry->getTableID())->cast<storage::NodeTable>();
+    auto& upperRelTable =
+        storageManager->getTable(indexEntry->getUpperRelTableID())->cast<storage::RelTable>();
+    auto& lowerRelTable =
+        storageManager->getTable(indexEntry->getLowerRelTableID())->cast<storage::RelTable>();
     std::vector<common::LogicalType> columnTypes;
     columnTypes.push_back(common::LogicalType::INTERNAL_ID());
     columnTypes.push_back(common::LogicalType::FLOAT());
-    std::vector<std::string> columnNames = {input->nodeExpression->getInternalID()->toString(), "_distance"};
+    std::vector<std::string> columnNames = {input->nodeExpression->getInternalID()->toString(),
+        "_distance"};
     auto config = storage::QueryHNSWConfig{input->optionalParams};
     return std::make_unique<QueryHNSWIndexBindData>(std::move(columnTypes), std::move(columnNames),
         nodeTableEntry->getTableID(), indexEntry, std::move(queryVector), k, nodeTable,

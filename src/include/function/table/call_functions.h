@@ -25,7 +25,6 @@ struct CallFuncMorsel {
     }
 };
 
-// TODO(Xiyang/Ziyi): Should this be CallTableFuncSharedState?
 struct CallFuncSharedState : TableFuncSharedState {
     common::offset_t maxOffset;
     common::offset_t curOffset;
@@ -39,8 +38,9 @@ struct CallFuncSharedState : TableFuncSharedState {
 struct CallTableFuncBindData : TableFuncBindData {
     common::offset_t maxOffset;
 
-    CallTableFuncBindData(common::offset_t maxOffset)
-        : TableFuncBindData{std::vector<common::LogicalType>{}, std::vector<std::string>{}, 0}, maxOffset{maxOffset} {}
+    explicit CallTableFuncBindData(common::offset_t maxOffset)
+        : TableFuncBindData{std::vector<common::LogicalType>{}, std::vector<std::string>{}, 0},
+          maxOffset{maxOffset} {}
     CallTableFuncBindData(std::vector<common::LogicalType> columnTypes,
         std::vector<std::string> returnColumnNames, common::offset_t maxOffset)
         : TableFuncBindData{std::move(columnTypes), std::move(returnColumnNames), 0},
@@ -51,7 +51,6 @@ struct CallTableFuncBindData : TableFuncBindData {
             columnNames, maxOffset);
     }
 };
-
 
 struct KUZU_API CallFunction {
     static std::unique_ptr<TableFuncSharedState> initSharedState(TableFunctionInitInput& input);
@@ -131,13 +130,11 @@ struct ShowAttachedDatabasesFunction final : CallFunction {
     static function_set getFunctionSet();
 };
 
-struct ShowFunctionsFunction : public CallFunction {
+struct ShowFunctionsFunction final : CallFunction {
     static constexpr const char* name = "SHOW_FUNCTIONS";
 
     static function_set getFunctionSet();
 };
-
-
 
 } // namespace function
 } // namespace kuzu

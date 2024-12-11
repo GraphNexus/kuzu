@@ -299,7 +299,6 @@ OnDiskGraphNbrScanState::InnerIterator::InnerIterator(const main::ClientContext*
     : context{context}, relTable{relTable}, tableScanState{std::move(tableScanState)} {}
 
 void OnDiskGraphNbrScanState::InnerIterator::initScan() {
-    tableScanState->randomLookup = true;
     relTable->initScanState(context->getTx(), *tableScanState);
 }
 

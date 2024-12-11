@@ -29,7 +29,6 @@ using min_node_priority_queue_t = std::priority_queue<NodeWithDistance,
 using max_node_priority_queue_t = std::priority_queue<NodeWithDistance,
     std::vector<NodeWithDistance>, MaxNodePriorityQueueComparator>;
 
-// TODO(Guodong): Is this the right place for this struct?
 struct HNSWIndexPartitionerSharedState {
     std::shared_ptr<processor::PartitionerSharedState> lowerPartitionerSharedState;
     std::shared_ptr<processor::PartitionerSharedState> upperPartitionerSharedState;

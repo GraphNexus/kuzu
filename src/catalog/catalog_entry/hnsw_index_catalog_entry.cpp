@@ -6,7 +6,7 @@ namespace kuzu {
 namespace catalog {
 
 void HNSWIndexCatalogEntry::serialize(common::Serializer& ser) const {
-    CatalogEntry::serialize(ser);
+    IndexCatalogEntry::serialize(ser);
     // TODO(Ziyi): tableID and indexName should be serialized inside IndexCatalogEntry.
     ser.writeDebuggingInfo("tableID");
     ser.serializeValue(tableID);

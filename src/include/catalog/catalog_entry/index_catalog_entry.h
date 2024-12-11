@@ -25,7 +25,9 @@ public:
     //===--------------------------------------------------------------------===//
     // serialization & deserialization
     //===--------------------------------------------------------------------===//
-    void serialize(common::Serializer& /*serializer*/) const override {}
+    void serialize(common::Serializer& serializer) const override {
+        CatalogEntry::serialize(serializer);
+    }
     // TODO(Ziyi/Guodong) : If the database fails with loaded extensions, should we restart the db
     // and reload previously loaded extensions? Currently, we don't have the mechanism to reload
     // extensions during recovery, thus, we are not able to recover the indexes created by

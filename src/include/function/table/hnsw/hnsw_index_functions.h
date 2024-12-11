@@ -1,10 +1,10 @@
 #pragma once
 
+#include "binder/expression/node_expression.h"
+#include "catalog/catalog_entry/hnsw_index_catalog_entry.h"
 #include "function/table/call_functions.h"
 #include "storage/index/hnsw_index.h"
 #include "storage/store/node_table.h"
-#include "binder/expression/node_expression.h"
-#include "catalog/catalog_entry/hnsw_index_catalog_entry.h"
 
 namespace kuzu {
 namespace function {

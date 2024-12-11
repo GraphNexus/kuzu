@@ -14,7 +14,7 @@ static common::offset_t tableFunc(TableFuncInput& input, TableFuncOutput& /*outp
 
 static std::unique_ptr<TableFuncBindData> bindFunc(main::ClientContext* /*context*/,
     ScanTableFuncBindInput*) {
-    return std::make_unique<CallTableFuncBindData>(0);
+    return std::make_unique<CallTableFuncBindData>(0 /* maxOffset */);
 }
 
 function_set ClearWarningsFunction::getFunctionSet() {

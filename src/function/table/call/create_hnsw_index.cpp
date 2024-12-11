@@ -36,7 +36,7 @@ static std::unique_ptr<TableFuncBindData> bindFunc(main::ClientContext* context,
     auto columnID = tableEntry->getColumnID(columnName);
     auto config = storage::HNSWIndexConfig{input->optionalParams};
     auto boundData = std::make_unique<CreateHNSWIndexBindData>(context, indexName, tableEntry,
-        &table, columnID, table.getStats(context->getTx()).getCardinality(), std::move(config));
+        &table, columnID, table.getStats(context->getTx()).getTableCard(), std::move(config));
     return boundData;
 }
 
@@ -68,13 +68,9 @@ static offset_t tableFunc(TableFuncInput& input, TableFuncOutput&) {
 }
 
 // NOLINTNEXTLINE(readability-non-const-parameter)
-static void finalizeFunc(processor::ExecutionContext* context, TableFuncSharedState* sharedState,
-    TableFuncLocalState*) {
-    // This is the non-perallel execution part.
+static void finalizeFunc(processor::ExecutionContext* context, TableFuncSharedState* sharedState) {
     const auto hnswSharedState = sharedState->ptrCast<CreateHNSWSharedState>();
     hnswSharedState->hnswIndex->shrink(context->clientContext->getTx());
-    // TODO(Guodong): Parallel the population here.
-    // Populate partitioning buffers for index graphs.
     hnswSharedState->hnswIndex->finalize(*context->clientContext->getMemoryManager(),
         *hnswSharedState->partitionerSharedState);
 
@@ -106,7 +102,7 @@ static std::string createHNSWIndexTables(main::ClientContext&, const TableFuncBi
 
 function_set CreateHNSWIndexFunction::getFunctionSet() {
     function_set functionSet;
-    std::vector inputTypes{LogicalTypeID::STRING, LogicalTypeID::STRING, LogicalTypeID::STRING};
+    std::vector inputTypes = {LogicalTypeID::STRING, LogicalTypeID::STRING, LogicalTypeID::STRING};
     auto func = std::make_unique<TableFunction>(name, tableFunc, bindFunc, initHNSWSharedState,
         initEmptyLocalState, inputTypes, finalizeFunc);
     func->rewriteFunc = createHNSWIndexTables;

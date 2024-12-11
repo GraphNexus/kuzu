@@ -1,6 +1,5 @@
 #include "storage/index/hnsw_index.h"
 
-#include "function/array/functions/array_distance.h"
 #include "main/client_context.h"
 #include "storage/index/hnsw_index_utils.h"
 #include "storage/store/csr_chunked_node_group.h"
