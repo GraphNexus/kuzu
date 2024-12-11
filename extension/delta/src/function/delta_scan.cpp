@@ -6,7 +6,8 @@ namespace delta_extension {
 using namespace function;
 using namespace common;
 
-// This bindFunc now is sharing between delta_scan and iceberg_scan, maybe we can have a common template for them later. 
+// This bindFunc now is sharing between delta_scan and iceberg_scan, maybe we can have a common
+// template for them later.
 std::unique_ptr<TableFuncBindData> bindFuncInternal(main::ClientContext* context,
     ScanTableFuncBindInput* input, const std::string& scanFuncName) {
     input->inputs[0].validateType(LogicalTypeID::STRING);
@@ -19,10 +20,10 @@ std::unique_ptr<TableFuncBindData> bindFuncInternal(main::ClientContext* context
     std::string query;
     if (scanFuncName == "ICEBERG") {
         query = common::stringFormat("SELECT * FROM {}('{}', allow_moved_paths = true)",
-                                    "ICEBERG_SCAN", input->inputs[0].getValue<std::string>());
+            "ICEBERG_SCAN", input->inputs[0].getValue<std::string>());
     } else if (scanFuncName == "DELTA") {
-        query = common::stringFormat("SELECT * FROM {}('{}')",
-                                    "DELTA_SCAN", input->inputs[0].getValue<std::string>());
+        query = common::stringFormat("SELECT * FROM {}('{}')", "DELTA_SCAN",
+            input->inputs[0].getValue<std::string>());
     }
 
     auto result = connector->executeQuery(query + " LIMIT 1");
@@ -44,7 +45,6 @@ std::unique_ptr<TableFuncBindData> bindFuncInternal(main::ClientContext* context
         duckdb_extension::DuckDBResultConverter{returnTypes}, copyVector(returnTypes),
         std::move(returnColumnNames), ReaderConfig{}, context);
 }
-
 
 // This bindFunc wraps the internal function to adhere to the TableFunction signature.
 std::unique_ptr<TableFuncBindData> bindFunc(main::ClientContext* context,
