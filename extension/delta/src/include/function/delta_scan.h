@@ -6,6 +6,7 @@
 #include "connector/delta_connector.h"
 #include "connector/duckdb_result_converter.h"
 #include "connector/duckdb_type_converter.h"
+#include "function/table/scan_functions.h"
 
 namespace kuzu {
 namespace delta_extension {
@@ -19,16 +20,18 @@ struct DeltaScanFunction : function::CallFunction {
     static function::function_set getFunctionSet();
 };
 
-struct DeltaScanBindData : public function::CallTableFuncBindData {
+struct DeltaScanBindData : public ScanBindData {
     std::string query;
     std::shared_ptr<DeltaConnector> connector;
     duckdb_extension::DuckDBResultConverter converter;
 
     DeltaScanBindData(std::string query, std::shared_ptr<DeltaConnector> connector,
         duckdb_extension::DuckDBResultConverter converter, std::vector<LogicalType> returnTypes,
-        std::vector<std::string> returnColumnNames);
-
-    std::unique_ptr<TableFuncBindData> copy() const override;
+        std::vector<std::string> returnColumnNames, ReaderConfig config, main::ClientContext* ctx)
+        : ScanBindData{std::move(returnTypes), std::move(returnColumnNames), std::move(config),
+              ctx},
+          query{std::move(query)}, connector{std::move(connector)},
+          converter{std::move(converter)} {}
 };
 
 // Functions and structs exposed for use

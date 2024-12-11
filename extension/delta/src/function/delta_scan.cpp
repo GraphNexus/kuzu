@@ -6,19 +6,6 @@ namespace delta_extension {
 using namespace function;
 using namespace common;
 
-struct DeltaScanBindData : public ScanBindData {
-    std::string query;
-    std::shared_ptr<DeltaConnector> connector;
-    duckdb_extension::DuckDBResultConverter converter;
-
-    DeltaScanBindData(std::string query, std::shared_ptr<DeltaConnector> connector,
-        duckdb_extension::DuckDBResultConverter converter, std::vector<LogicalType> returnTypes,
-        std::vector<std::string> returnColumnNames, ReaderConfig config, main::ClientContext* ctx)
-        : ScanBindData{std::move(returnTypes), std::move(returnColumnNames), std::move(config),
-              ctx},
-          query{std::move(query)}, connector{std::move(connector)},
-          converter{std::move(converter)} {}
-};
 // This bindFunc now is sharing between delta_scan and iceberg_scan, maybe we can have a common template for them later. 
 std::unique_ptr<TableFuncBindData> bindFuncInternal(main::ClientContext* context,
     ScanTableFuncBindInput* input, const std::string& scanFuncName) {
@@ -65,7 +52,6 @@ std::unique_ptr<TableFuncBindData> bindFunc(main::ClientContext* context,
     // Default to "DELTA".
     return bindFuncInternal(context, input, "DELTA");
 }
-
 
 struct DeltaScanSharedState : public BaseScanSharedState {
     explicit DeltaScanSharedState(std::unique_ptr<duckdb::MaterializedQueryResult> queryResult)
