@@ -31,7 +31,7 @@ struct DeltaScanBindData : public ScanBindData {
               ctx},
           query{std::move(query)}, connector{std::move(connector)},
           converter{std::move(converter)} {}
-    
+
     std::unique_ptr<TableFuncBindData> copy() const override {
         return std::make_unique<DeltaScanBindData>(*this);
     }
